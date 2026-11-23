@@ -59,3 +59,15 @@ jobs:
           curl -sS -X POST "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/pages/projects/${PROJECT}/domains" \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" -H "Content-Type: application/json" \
             --data "{\"name\":\"${DOMAIN}\"}" | head -c 600; echo
+
+      # 第一次：在 aronlab.dev 加一筆 CNAME（peelback → peelback.pages.dev）。已經有了會回錯誤，忽略
+      - name: 建 DNS 記錄
+        if: env.HAS_TOKEN == 'true'
+        continue-on-error: true
+        run: |
+          ZONE=$(curl -sS "https://api.cloudflare.com/client/v4/zones?name=aronlab.dev" -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" | python3 -c 'import sys,json; r=json.load(sys.stdin)["result"]; print(r[0]["id"] if r else "")')
+          echo "zone: ${ZONE:-（找不到，Token 可能沒有 DNS 權限）}"
+          [ -n "$ZONE" ] || exit 0
+          curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE/dns_records" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" -H "Content-Type: application/json" \
+            --data '{"type":"CNAME","name":"peelback","content":"peelback.pages.dev","proxied":true}' | head -c 600; echo
