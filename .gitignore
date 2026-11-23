@@ -1,0 +1,14 @@
+# 參考照片、下載的原始模型、截圖：只留在本機（有版權，或檔案太大）
+ref/
+shots/
+design/assets/
+design/mock/out/
+design/*.jpg
+design/*.png
+dist/
+teardown-out/
+node_modules/
+# 舊版（照片重建）的車身和貼圖，貼圖是從汽車之家照片來的，不公開
+car/asset/
+car/asset_toy/
+.DS_Store

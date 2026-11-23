@@ -1,0 +1,764 @@
+/* 剝剝看 Peelback：全畫面 3D，上面只留名字和兩顆工具按鈕，常用的動作都在拇指範圍的底部一條。
+   紙色／近黑兩個底；台北客運的橘是車子自己的顏色，介面的強調色用藍，只標「你現在看的零件」。 */
+:root {
+  --bg: #f3f1ec;
+  --ground: #ebe7df;
+  --road-line: #fbfaf7;
+  --shadow-ink: #5a4a36;
+  --ink: #1a1b1d;
+  --muted: #676a6f;
+  --line: rgba(26, 27, 29, 0.12);
+  --glass: rgba(255, 255, 255, 0.7);
+  --glass-edge: rgba(255, 255, 255, 0.9);
+  --accent: #2f5bea;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(47, 91, 234, 0.12);
+  --good: #1f9d55;
+  --shadow: 0 10px 30px rgba(40, 32, 20, 0.12), 0 2px 6px rgba(40, 32, 20, 0.08);
+  --f-sans: "Inter Tight", "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+  --f-zh: "Noto Sans TC", "PingFang TC", "Heiti TC", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --gut: max(22px, env(safe-area-inset-left, 0px));
+  --gut-r: max(22px, env(safe-area-inset-right, 0px));
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #070708;
+    --ground: #111214;
+    --road-line: #3a3c40;
+    --shadow-ink: #000000;
+    --ink: #edede8;
+    --muted: #9b9da1;
+    --line: rgba(237, 237, 232, 0.14);
+    --glass: rgba(26, 27, 30, 0.72);
+    --glass-edge: rgba(255, 255, 255, 0.14);
+    --accent: #6f8dff;
+    --accent-ink: #0a0b10;
+    --accent-soft: rgba(111, 141, 255, 0.18);
+    --good: #3ccf7a;
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #070708;
+  --ground: #111214;
+  --road-line: #3a3c40;
+  --shadow-ink: #000000;
+  --ink: #edede8;
+  --muted: #9b9da1;
+  --line: rgba(237, 237, 232, 0.14);
+  --glass: rgba(26, 27, 30, 0.72);
+  --glass-edge: rgba(255, 255, 255, 0.14);
+  --accent: #6f8dff;
+  --accent-ink: #0a0b10;
+  --accent-soft: rgba(111, 141, 255, 0.18);
+  --good: #3ccf7a;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}
+
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-sans);
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+#app { position: fixed; inset: 0; }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* 注音：直排在字的右邊（國小課本的排法），不會把字撐開 */
+.zy { display: contents; }
+/* 注音：橫排、浮在字的正上方。字本身照常排，不會被注音撐開；每個字上面多留一點高度給注音 */
+/* 注音（直式）：字的右邊一直行，符號由上往下，聲調在右邊下方、輕聲點在上面。
+   注音行的高度和字差不多（三個符號 × 0.3em），所以不會把行撐高；每個字後面留一點空，字和字才分得開 */
+.zc { display: inline-flex; align-items: center; white-space: nowrap; margin-right: 0.1em; line-height: inherit; }
+.zc:last-child { margin-right: 0.04em; }
+.zc .z {
+  display: inline-flex; align-items: flex-end; margin-left: 0.05em;
+  font-family: var(--f-zh); font-size: max(0.35em, 7px); font-weight: 500; font-style: normal;
+  line-height: 1; letter-spacing: 0; color: currentColor; opacity: 0.72; pointer-events: none;
+}
+.zc .zs { position: relative; display: flex; flex-direction: column; align-items: center; }
+.zc .zs i { display: block; font-style: normal; line-height: 0.98; }
+.zc .zs i.n { position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, 0.3em); line-height: 1; }
+.zc .zp { margin-left: 0.02em; }
+.zc .t { display: block; width: 0.5em; font-style: normal; line-height: 1; margin: 0 0 0.5em 0.02em; }
+
+/* 浮在 3D 上的玻璃：半透明底、細邊、上緣一條亮邊 */
+.glass, .round, .bar, .card, .chip, .drive, .facts {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: inset 0 1px 0 var(--glass-edge), 0 0 0 1px var(--line), var(--shadow);
+}
+
+/* ---- 上方 ---- */
+.top {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: max(20px, env(safe-area-inset-top, 0px)) var(--gut-r) 0 var(--gut);
+  pointer-events: none;
+}
+.top > * { pointer-events: auto; }
+.title { display: grid; gap: 6px; justify-items: start; min-width: 0; }
+.eyebrow { margin: 0; font: 500 12px/1.6 var(--f-mono); letter-spacing: 0.14em; color: var(--muted); }
+/* 換車：左上角的大分段按鈕，同時當作標題 */
+.veh, .langs {
+  position: relative; display: flex; padding: 4px; border-radius: 26px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: inset 0 1px 0 var(--glass-edge), 0 0 0 1px var(--line), var(--shadow);
+}
+.veh button {
+  position: relative; display: flex; align-items: center; gap: 8px;
+  min-height: 52px; padding: 0 18px 0 14px; border-radius: 22px;
+  font: 800 24px/1.1 var(--f-zh); letter-spacing: 0.04em; color: var(--ink); transition: color 0.25s;
+}
+.veh button svg { width: 26px; height: 26px; }
+.veh button.on { color: var(--accent-ink); }
+.veh button.on svg { animation: boing 0.55s var(--spring); }
+.veh .seg-ind, .langs .seg-ind { border-radius: 22px; }
+/* 語言：注音／中／EN */
+.langs { padding: 3px; border-radius: 24px; }
+.langs button {
+  position: relative; min-width: 40px; height: 42px; padding: 0 10px; border-radius: 20px;
+  font: 700 14px/1 var(--f-zh); color: var(--ink); transition: color 0.25s;
+}
+.langs button[data-l="zy"] { letter-spacing: -0.04em; }
+.langs button.on { color: var(--accent-ink); }
+.langs .seg-ind { border-radius: 20px; }
+html[data-lang="en"] .veh button, html[data-lang="en"] .card h2, html[data-lang="en"] .q-text { font-family: var(--f-sans); letter-spacing: 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 40px; padding: 0 10px 0 14px; border-radius: 20px;
+  font: 500 14px/1.2 var(--f-zh); color: var(--ink);
+  transition: transform 0.35s var(--spring);
+}
+.chip svg { width: 18px; height: 18px; color: var(--muted); }
+.chip:active { transform: scale(0.94); }
+.facts {
+  margin-top: 4px; border-radius: 18px; padding: 16px 18px 14px;
+  width: min(340px, calc(100vw - 44px));
+  animation: grow 0.45s var(--out);
+}
+.facts dl { margin: 0; display: grid; gap: 10px; }
+.facts dl > div { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: baseline; }
+.facts dt { font: 500 12px/1.2 var(--f-zh); color: var(--muted); }
+.facts dd { margin: 0; font: 500 14px/1.6 var(--f-zh); }
+html[data-lang="zy"] .facts dd, html[data-lang="zy"] .facts .src { line-height: 1.8; }
+.facts dd b { font: 700 20px/1 var(--f-sans); font-variant-numeric: tabular-nums; }
+.facts dd small { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.facts .src { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font: 400 12px/1.9 var(--f-zh); color: var(--muted); }
+.tools { display: flex; gap: 10px; align-items: center; }
+.round {
+  width: 48px; height: 48px; border-radius: 50%;
+  display: grid; place-items: center;
+  transition: transform 0.35s var(--spring);
+}
+.round:active { transform: scale(0.88); }
+.round.sm { width: 40px; height: 40px; }
+.round.sm svg { width: 20px; height: 20px; }
+.round svg.spin { animation: spin 0.7s var(--out); }
+
+/* ---- 柴油／電動切換：兩格分段按鈕，藍色底塊用彈簧滑過去 ---- */
+.vrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 2px; }
+.variant {
+  position: relative; display: flex; padding: 4px; border-radius: 24px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: inset 0 1px 0 var(--glass-edge), 0 0 0 1px var(--line), var(--shadow);
+}
+.seg-ind { position: absolute; left: 0; top: 0; border-radius: 20px; background: var(--accent); transition: transform 0.55s var(--spring), width 0.3s, height 0.3s; }
+.variant button {
+  position: relative; display: flex; align-items: center; gap: 4px;
+  height: 46px; padding: 0 14px 0 10px; border-radius: 20px;
+  font: 700 16px/1 var(--f-zh); color: var(--ink); transition: color 0.25s;
+}
+.variant button svg { width: 20px; height: 20px; }
+.variant button.on { color: var(--accent-ink); }
+.variant button.on svg { animation: boing 0.55s var(--spring); }
+.diff-btn { height: 46px; border-radius: 23px; padding: 0 14px 0 10px; flex-direction: row-reverse; }
+.diff-btn svg { width: 20px; height: 20px; color: var(--ink); }
+
+/* ---- 比一比 ---- */
+.diff-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px 6px; align-items: center; margin-top: 10px; }
+.dh { display: flex; align-items: center; justify-content: center; gap: 4px; font: 700 15px/1 var(--f-zh); color: var(--muted); padding-bottom: 2px; }
+.dh svg { width: 18px; height: 18px; }
+.dc {
+  min-height: 46px; padding: 6px 8px; border-radius: 14px;
+  font: 700 17px/1.2 var(--f-zh); text-align: center;
+  background: var(--glass); box-shadow: 0 0 0 1px var(--line);
+  transition: transform 0.35s var(--spring), background 0.2s;
+}
+.dc:active { transform: scale(0.94); }
+.dc.cur { background: var(--accent-soft); box-shadow: 0 0 0 1.5px var(--accent); }
+.dc.none { color: var(--muted); font-weight: 500; font-size: 15px; background: transparent; box-shadow: 0 0 0 1px var(--line) inset; }
+.diff-grid .arrow { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); }
+.diff-grid .arrow svg { width: 18px; height: 18px; }
+.diffcard { width: min(440px, calc(100vw - 44px)); }
+
+/* ---- 底部控制列 ---- */
+.bar {
+  position: absolute;
+  left: 50%;
+  bottom: max(18px, calc(env(safe-area-inset-bottom, 0px) + 8px));
+  transform: translateX(-50%);
+  display: flex; gap: 4px; padding: 6px;
+  border-radius: 26px;
+  max-width: calc(100vw - 32px);
+}
+.bar button {
+  position: relative;
+  width: 82px; height: 74px; border-radius: 20px;
+  display: grid; place-items: center; align-content: center; gap: 4px;
+  font: 600 15px/1.25 var(--f-zh); color: var(--ink);
+  transition: background 0.25s, color 0.25s, transform 0.4s var(--spring);
+}
+.bar button svg { width: 26px; height: 26px; transition: transform 0.5s var(--spring); }
+.bar button:active { transform: scale(0.9); }
+.bar button.on { background: var(--accent); color: var(--accent-ink); }
+.bar button.boing svg { animation: boing 0.55s var(--spring); }
+.bar button[data-act="explode"].on svg rect:nth-child(1) { transform: translate(-1.5px, -1.5px); }
+.bar button[data-act="explode"].on svg rect:nth-child(2) { transform: translate(1.5px, -1.5px); }
+.bar button[data-act="explode"].on svg rect:nth-child(3) { transform: translate(-1.5px, 1.5px); }
+.bar button[data-act="explode"].on svg rect:nth-child(4) { transform: translate(1.5px, 1.5px); }
+.bar button svg rect { transition: transform 0.5s var(--spring); }
+
+/* ---- 零件說明牌 ---- */
+.card {
+  position: absolute;
+  left: var(--gut);
+  bottom: calc(max(18px, calc(env(safe-area-inset-bottom, 0px) + 8px)) + 96px);
+  width: min(400px, calc(100vw - 44px));
+  border-radius: 22px;
+  padding: 18px 20px 18px;
+  box-sizing: border-box;
+}
+.card.pop { animation: rise 0.55s var(--spring); }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.card h2 { margin: 0; font: 800 34px/1.15 var(--f-zh); letter-spacing: 0.04em; }
+.card-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.en { margin: 2px 0 10px; font: 500 12px/1 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.say { margin: 0; font: 400 18px/1.55 var(--f-zh); }
+html[data-lang="zy"] .say { font-size: 19px; line-height: 1.75; }
+html[data-lang="zy"] .fact { line-height: 1.7; }
+html[data-lang="en"] .say, html[data-lang="en"] .fact { font-family: var(--f-sans); }
+.fact {
+  margin: 12px 0 0; padding: 10px 12px; border-radius: 12px;
+  background: var(--accent-soft); color: var(--ink);
+  font: 500 16px/1.55 var(--f-zh);
+}
+
+/* ---- 跟著零件的小標籤 ---- */
+.tag {
+  position: absolute; left: 0; top: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+.tag > i {
+  position: absolute; left: -6px; top: -6px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.tag > i::after {
+  content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid var(--accent);
+  animation: ring 1.8s var(--out) infinite;
+}
+.tag > span {
+  position: absolute; left: 0; bottom: 14px; transform: translateX(-50%);
+  white-space: nowrap; padding: 6px 12px; border-radius: 14px;
+  background: var(--accent); color: var(--accent-ink);
+  font: 700 15px/1 var(--f-zh);
+}
+
+/* ---- 拆開後的零件名牌：細線往下指到零件，點了開說明 ---- */
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.lbl { position: absolute; left: 0; top: 0; width: 0; height: 0; padding: 0; will-change: transform; pointer-events: none; }
+.lbl .in {
+  position: absolute; left: 0; bottom: 0;
+  display: flex; flex-direction: column; align-items: center;
+  translate: -50% 0;
+  transform-origin: 50% 100%;
+  opacity: 0; scale: 0.4;
+  pointer-events: none;
+  transition: opacity 0.25s, scale 0.45s var(--spring);
+}
+.labels.on .lbl .in { opacity: 1; scale: 1; pointer-events: auto; transition-delay: calc(var(--i) * 28ms); }
+.labels.on .lbl.off .in { opacity: 0; scale: 0.6; pointer-events: none; transition-delay: 0s; }
+.lbl b {
+  display: block; padding: 5px 11px 4px; border-radius: 13px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 var(--glass-edge), 0 0 0 1px var(--line), 0 4px 12px rgba(0,0,0,0.12);
+  font: 700 15px/1.15 var(--f-zh); color: var(--ink); white-space: nowrap;
+  transition: background 0.2s, color 0.2s, scale 0.35s var(--spring);
+}
+.lbl .in > i { display: block; width: 1.5px; height: var(--stem, 16px); background: var(--ink); opacity: 0.45; position: relative; transition: height 0.3s var(--out); }
+.lbl .in > i::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--glass); }
+.lbl:active b { scale: 0.9; }
+.labels.on.has-sel .lbl:not(.sel):not(.off) .in { opacity: 0.6; }
+.lbl.sel b { background: var(--accent); color: var(--accent-ink); }
+.lbl.sel .in > i, .lbl.sel .in > i::after { background: var(--accent); opacity: 1; }
+
+/* ---- 層數列：右邊直排五格，由上到下＝由外到內，一次看得到全部 ---- */
+.stack {
+  position: absolute; right: var(--gut-r); top: 50%;
+  transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 6px; border-radius: 26px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: inset 0 1px 0 var(--glass-edge), 0 0 0 1px var(--line), var(--shadow);
+  transition: opacity 0.3s, transform 0.5s var(--spring);
+}
+.stack.away { opacity: 0; transform: translate(30px, -50%); pointer-events: none; }
+/* 串起五格的細線：表示一層接一層往裡面 */
+.stack::before { content: ""; position: absolute; left: 50%; top: 40px; bottom: 40px; width: 1.5px; margin-left: -0.75px; background: var(--line); }
+.stack-ind {
+  position: absolute; left: 0; top: 0; border-radius: 20px;
+  background: var(--accent);
+  transition: transform 0.55s var(--spring), width 0.3s, height 0.3s;
+}
+.stack button {
+  position: relative; width: 76px; padding: 9px 4px 7px; border-radius: 20px;
+  display: grid; justify-items: center; gap: 2px;
+  color: var(--ink);
+  transition: color 0.25s;
+}
+.stack button .ic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--glass); box-shadow: 0 0 0 1px var(--line); transition: background 0.25s, box-shadow 0.25s; }
+.stack button .ic svg { width: 24px; height: 24px; }
+.stack button .nm { font: 700 15px/1.1 var(--f-zh); letter-spacing: 0.04em; white-space: nowrap; }
+.stack button.done { color: var(--muted); }
+.stack button.on { color: var(--accent-ink); }
+.stack button.on .ic { background: transparent; box-shadow: 0 0 0 1.5px var(--accent-ink); }
+.stack button.boing .ic svg { animation: boing 0.55s var(--spring); }
+.stack button:active .ic { transform: scale(0.9); }
+
+
+/* ---- 開車的數字 ---- */
+.drive {
+  position: absolute; right: var(--gut-r);
+  bottom: calc(max(18px, calc(env(safe-area-inset-bottom, 0px) + 8px)) + 96px);
+  display: grid; gap: 10px; padding: 14px 18px; border-radius: 20px;
+  animation: rise 0.5s var(--spring);
+}
+.drive div { display: grid; }
+.drive b { font: 700 34px/1 var(--f-sans); font-variant-numeric: tabular-nums; }
+.drive div > span { font: 500 13px/1.7 var(--f-zh); color: var(--muted); }
+
+/* ---- 提示和載入 ---- */
+.hint {
+  position: absolute; left: 50%; bottom: calc(max(18px, calc(env(safe-area-inset-bottom, 0px) + 8px)) + 96px);
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; white-space: nowrap;
+  font: 500 14px/1.6 var(--f-zh); color: var(--muted);
+  transition: opacity 0.6s, transform 0.6s var(--out);
+}
+.hint svg { width: 18px; height: 18px; animation: sway 2.4s ease-in-out infinite; }
+.hint.gone { opacity: 0; transform: translate(-50%, 8px); pointer-events: none; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; background: var(--bg); transition: opacity 0.5s; }
+.loading.done { opacity: 0; pointer-events: none; }
+.loading .wheel {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 7px solid var(--ink); box-sizing: border-box; position: relative;
+  animation: roll 1.1s linear infinite;
+}
+.loading .wheel::before, .loading .wheel::after { content: ""; position: absolute; left: 50%; top: 50%; width: 2px; height: 22px; margin: -11px 0 0 -1px; background: var(--ink); }
+.loading .wheel::after { transform: rotate(90deg); }
+
+@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+@keyframes roll { to { transform: translateX(0) rotate(360deg); } }
+@keyframes boing { 0% { transform: scale(1); } 30% { transform: scale(0.8); } 65% { transform: scale(1.15); } 100% { transform: scale(1); } }
+@keyframes rise { from { opacity: 0; transform: translateY(24px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes drop { from { opacity: 0; transform: translate(-50%, -18px) scale(0.96); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes grow { from { opacity: 0; transform: translateY(-8px) scale(0.97); transform-origin: top left; } to { opacity: 1; transform: none; } }
+@keyframes ring { from { transform: scale(0.6); opacity: 1; } to { transform: scale(2.2); opacity: 0; } }
+@keyframes sway { 0%, 100% { transform: rotate(-20deg); } 50% { transform: rotate(20deg); } }
+
+/* 窄畫面（手機直拿、iPad 分割畫面）：說明牌貼滿寬、按鈕縮小一號 */
+/* 窄螢幕：層數列改成標題下面一橫排 */
+@media (max-width: 620px) {
+  .stack { top: 136px; right: auto; left: 50%; transform: translateX(-50%); flex-direction: row; gap: 2px; padding: 5px; border-radius: 22px; }
+  .stack.away { transform: translate(-50%, -20px); }
+  .stack::before { left: 34px; right: 34px; top: 26px; bottom: auto; width: auto; height: 1.5px; margin: 0; }
+  .stack button { width: 62px; padding: 6px 2px 5px; border-radius: 17px; }
+  .stack-ind { border-radius: 17px; }
+  .stack button .ic { width: 28px; height: 28px; }
+  .stack button .ic svg { width: 20px; height: 20px; }
+  .stack button .nm { font-size: 12px; }
+}
+@media (max-width: 620px) {
+  .veh button { min-height: 44px; font-size: 19px; padding: 0 14px 0 10px; }
+  .veh button svg { width: 22px; height: 22px; }
+  .langs button { min-width: 34px; height: 38px; padding: 0 7px; font-size: 13px; }
+  .tools { gap: 6px; }
+  .bar button { width: 62px; height: 58px; font-size: 12px; border-radius: 16px; }
+  .bar button svg { width: 22px; height: 22px; }
+  .card { left: 16px; right: 16px; width: auto; bottom: calc(max(18px, calc(env(safe-area-inset-bottom, 0px) + 8px)) + 80px); }
+  .card h2 { font-size: 28px; }
+  .say { font-size: 16px; }
+  .drive { top: 150px; bottom: auto; padding: 10px 14px; gap: 6px; }
+  .drive b { font-size: 24px; }
+  .hint { bottom: calc(max(18px, calc(env(safe-area-inset-bottom, 0px) + 8px)) + 84px); font-size: 12px; white-space: normal; width: calc(100vw - 44px); justify-content: center; text-align: center; }
+  .variant button { height: 40px; font-size: 14px; }
+  .diff-btn { height: 40px; font-size: 13px; }
+  .round { width: 42px; height: 42px; }
+  .lbl b { font-size: 12px; padding: 4px 8px 3px; }
+
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+/* 飛機專用：開車面板多一行「快轉播放」，層數列六格 */
+.drive .ff { margin: 0; font: 500 12px/1.6 var(--f-zh); color: var(--muted); }
+@media (max-width: 620px) {
+  .stack button { width: 54px; }
+  .stack button .nm { font-size: 11px; }
+}
+/* 飛行數字放左邊，不要跟右邊的層數列疊在一起 */
+.drive { right: auto; left: var(--gut); top: 200px; bottom: auto; }
+@media (max-width: 620px) {
+  .drive { top: auto; left: 16px; bottom: calc(max(18px, calc(env(safe-area-inset-bottom, 0px) + 8px)) + 84px); grid-auto-flow: column; gap: 14px; }
+  .drive .ff { display: none; }
+}
+/* 按鈕上的字不換行（注音模式每個字是一個小方塊，窄的時候會被拆成一個字一行） */
+.veh button, .langs button, .variant button, .diff-btn, .bar button > span, .stack .nm, .lbl b, .chip > span, .ly-name { white-space: nowrap; }
+@media (max-width: 420px) {
+  .veh button { font-size: 17px; padding: 0 12px 0 9px; gap: 6px; }
+}
+@media (max-width: 520px) {
+  /* 手機：語言和聲音按鈕在右上，換車的大按鈕往下讓一點，不要疊在一起 */
+  .veh { margin-top: 20px; }
+}
+
+/* ---- 燈光面板：左邊的卡片，最上面白天／晚上，下面每組燈一列開關 ---- */
+/* 底部的燈光按鈕：有燈開著時，燈泡旁邊亮一顆暖黃色的小點 */
+.bar .lit-dot {
+  position: absolute; top: 9px; right: calc(50% - 19px); width: 8px; height: 8px; border-radius: 50%;
+  background: #ffc94a; box-shadow: 0 0 0 2px var(--glass), 0 0 8px #ffc94a;
+  transform: scale(0); transition: transform 0.45s var(--spring);
+}
+.bar #lightBtn.lit .lit-dot { transform: scale(1); }
+.bar #lightBtn.lit svg path:last-child { fill: rgba(255, 201, 74, 0.35); }
+.lightcard { width: min(360px, calc(100vw - 44px)); max-height: calc(100vh - 230px); overflow: auto; }
+.daynight {
+  position: relative; display: flex; margin: 12px 0 10px; padding: 4px; border-radius: 22px;
+  background: var(--accent-soft);
+}
+.daynight button {
+  position: relative; flex: 1; display: flex; justify-content: center; align-items: center; gap: 6px;
+  height: 42px; border-radius: 18px; font: 700 15px/1 var(--f-zh); color: var(--ink); transition: color 0.25s; white-space: nowrap;
+}
+.daynight button svg { width: 20px; height: 20px; }
+.daynight button.on { color: var(--accent-ink); }
+.daynight .seg-ind { border-radius: 18px; }
+.lrows { display: grid; gap: 4px; }
+.lrow {
+  display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 10px;
+  padding: 6px 8px 6px 6px; border-radius: 16px; text-align: left;
+  font: 700 16px/1.2 var(--f-zh); color: var(--ink);
+  transition: background 0.25s, transform 0.35s var(--spring);
+}
+html[data-lang="en"] .lrow { font-family: var(--f-sans); }
+.lrow:active { transform: scale(0.97); }
+.lrow .lic { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--glass); box-shadow: 0 0 0 1px var(--line); color: var(--muted); transition: background 0.3s, color 0.3s, box-shadow 0.3s; }
+.lrow .lic svg { width: 22px; height: 22px; }
+.lrow.on { background: var(--accent-soft); }
+.lrow.on .lic { background: #15171c; color: var(--lc); box-shadow: 0 0 0 1px rgba(0,0,0,0.2), 0 0 14px -2px var(--lc); }
+.lrow.on .lic svg { animation: boing 0.55s var(--spring); }
+/* 開關：膠囊裡一顆圓點，用彈簧滑過去 */
+.sw { position: relative; width: 46px; height: 28px; border-radius: 14px; background: var(--line); transition: background 0.25s; }
+.sw i { position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: transform 0.45s var(--spring); }
+.lrow.on .sw { background: var(--accent); }
+.lrow.on .sw i { transform: translateX(18px); }
+.lall { margin-top: 10px; width: 100%; justify-content: center; min-height: 42px; font-weight: 700; }
+@media (max-width: 620px) {
+  .lightcard { left: 16px; right: 16px; width: auto; max-height: 46vh; }
+  .lrow { font-size: 15px; padding: 4px 6px 4px 4px; }
+}
+.sidecard:not([hidden]) ~ .hint { opacity: 0; pointer-events: none; }
+@media (max-width: 620px) {
+  /* 手機：燈光面板縮成兩欄的小格子，只佔下面一塊，車子還看得到 */
+  .lightcard { padding: 12px 14px 14px; max-height: none; bottom: calc(max(18px, calc(env(safe-area-inset-bottom, 0px) + 8px)) + 80px); }
+  .lightcard .card-head h2 { font-size: 20px; }
+  .lightcard .round.sm { width: 34px; height: 34px; }
+  .lightcard .daynight { position: absolute; top: 10px; left: 92px; right: 56px; margin: 0; padding: 3px; }
+  .lightcard .daynight button { height: 32px; font-size: 13px; }
+  .lrows { grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px; }
+  .lrow { grid-template-columns: 30px 1fr; gap: 6px; padding: 4px; font-size: 13px; border-radius: 12px; }
+  .lrow .lic { width: 30px; height: 30px; }
+  .lrow .lic svg { width: 18px; height: 18px; }
+  .lrow .sw { display: none; }
+  .lrow.on { box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .lall { margin-top: 6px; min-height: 34px; font-size: 13px; }
+}
+
+/* 底部控制列有 6 顆按鈕時（飛機、公車都有燈光），手機上每顆再窄一點 */
+@media (max-width: 620px) {
+  .bar { gap: 2px; padding: 5px; }
+  .bar button { width: 54px; }
+  .bar .lit-dot { top: 6px; right: calc(50% - 16px); }
+}
+@media (max-width: 360px) {
+  .bar button { width: 48px; font-size: 11px; }
+}
+@media (max-width: 620px) {
+  /* 英文按鈕字比較長：可以斷成兩行，不要互相疊到 */
+  html[data-lang="en"] .bar button > span { white-space: normal; font-size: 11px; line-height: 1.05; text-align: center; max-width: 52px; }
+}
+
+@media (max-width: 620px) {
+  /* 注音模式：底部按鈕的字比較寬，三個字的可以斷成兩行 */
+  html[data-lang="zy"] .bar button > span { display: flex; flex-wrap: wrap; justify-content: center; white-space: normal; max-width: 56px; font-size: 12px; line-height: 1.25; row-gap: 1px; }
+  html[data-lang="zy"] .bar button { height: auto; min-height: 58px; padding: 6px 0; }
+}
+
+/* =====================================================================
+   v2「展廳」：近黑底＋薄荷綠（2026-11-23 定案）。紙色是淺色版。
+   按鈕不用線框：相關的按鈕收在同一個霧面膠囊裡，選中的用薄荷色實心填滿、圖示和字是深色。
+   手機：系統按鈕收成一顆「⋯」，底部一條 50px 的控制列，第二個動作和燈光收進「更多」，層數改成控制列上面一條小點。
+   ===================================================================== */
+:root[data-theme="dark"] {
+  --bg: #070808; --ground: #0f1111; --road-line: #2a2e2d; --shadow-ink: #000000;
+  --ink: #ecede8; --muted: #8f948f; --line: rgba(236, 237, 232, 0.1);
+  --glass: rgba(22, 25, 25, 0.8); --glass-edge: rgba(255, 255, 255, 0.08); --glass2: rgba(255, 255, 255, 0.07);
+  --accent: #3fe0b2; --accent-ink: #04130e; --accent-soft: rgba(63, 224, 178, 0.14);
+  --shadow: 0 22px 40px -18px rgba(0, 0, 0, 0.95), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --ring: 0 0 0 0 transparent;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #f3f1ea; --ground: #ebe8df; --road-line: #fbfaf6; --shadow-ink: #4a4636;
+  --ink: #141513; --muted: #6f716b; --line: rgba(20, 21, 19, 0.1);
+  --glass: rgba(255, 254, 250, 0.86); --glass-edge: rgba(255, 255, 255, 0.95); --glass2: rgba(20, 21, 19, 0.06);
+  --accent: #2bd1a2; --accent-ink: #04130e; --accent-soft: rgba(43, 209, 162, 0.16);
+  --shadow: 0 18px 36px -18px rgba(60, 50, 20, 0.35), 0 2px 6px rgba(60, 50, 20, 0.08);
+  --ring: 0 0 0 1px rgba(20, 21, 19, 0.06);
+  color-scheme: light;
+}
+.glass, .round, .bar, .card, .chip, .drive, .facts, .veh, .langs, .stack, .sys {
+  background: var(--glass);
+  box-shadow: inset 0 1px 0 var(--glass-edge), var(--ring), var(--shadow);
+}
+button { -webkit-touch-callout: none; }
+.round, .bar button, .stack button, .htabs button, .th, .cta, .vtitle, .lbl b, .langs button {
+  transition: transform 0.5s var(--spring), background 0.25s, color 0.25s, box-shadow 0.25s, opacity 0.25s;
+}
+.round:active, .bar button:active, .th:active, .cta:active, .htabs button:active, .langs button:active { transform: scale(0.88); transition-duration: 0.12s; }
+
+/* ---- 觀看頁上方：返回＋車名、右邊系統按鈕 ---- */
+.vhead { display: flex; align-items: center; gap: 12px; }
+.round { width: 44px; height: 44px; }
+.round svg { width: 22px; height: 22px; }
+.vname { display: grid; gap: 3px; justify-items: start; }
+.vname .no { font: 500 10px/1 var(--f-mono); letter-spacing: 0.16em; color: var(--muted); }
+.vtitle { display: inline-flex; align-items: center; gap: 6px; padding: 0; font: 800 20px/1.2 var(--f-zh); letter-spacing: 0.02em; color: var(--ink); text-align: left; }
+html[data-lang="en"] .vtitle { font-family: var(--f-sans); letter-spacing: -0.01em; }
+.vtitle svg { width: 18px; height: 18px; color: var(--muted); flex: none; }
+.vtitle[aria-expanded="true"] svg { color: var(--accent); }
+.vtitle:active { transform: scale(0.96); }
+.title { gap: 10px; }
+.tools { position: relative; }
+.sys { display: flex; align-items: center; gap: 8px; background: none; box-shadow: none; }
+.sys .round { box-shadow: inset 0 1px 0 var(--glass-edge), var(--ring), var(--shadow); }
+.langs { padding: 3px; border-radius: 24px; }
+.langs button { min-width: 42px; height: 38px; padding: 0 11px; font: 700 13px/1 var(--f-zh); color: var(--muted); }
+.langs button.on { color: var(--accent-ink); }
+.seg-ind { background: var(--accent); transition: transform 0.55s var(--spring), width 0.3s, height 0.3s; }
+.menu { display: none; }
+
+/* ---- 底部控制列：一個霧面膠囊，選中的薄荷色填滿 ---- */
+.bar { gap: 4px; padding: 6px; border-radius: 30px; }
+.bar button { width: 80px; height: 64px; border-radius: 24px; gap: 3px; font: 600 12px/1.2 var(--f-zh); color: var(--muted); }
+.bar button svg { width: 24px; height: 24px; color: var(--ink); }
+.bar button.on { background: var(--accent); color: var(--accent-ink); box-shadow: 0 10px 22px -12px var(--accent); }
+.bar button.on svg { color: var(--accent-ink); }
+.bar .more { display: none; }
+.bar .lit-dot { box-shadow: 0 0 0 2px var(--glass); }
+
+/* ---- 層數列：右邊一個膠囊，選中的那層薄荷色 ---- */
+.stack { border-radius: 30px; padding: 6px; }
+.stack::before { display: none; }
+.stack-ind { border-radius: 24px; box-shadow: 0 10px 22px -12px var(--accent); }
+.stack button { width: 72px; border-radius: 24px; color: var(--muted); }
+.stack button .ic { background: var(--glass2); box-shadow: none; }
+.stack button .nm { font-size: 13px; }
+.stack button.done { color: var(--muted); opacity: 0.6; }
+.stack button.on { color: var(--accent-ink); opacity: 1; }
+.stack button.on .ic { background: rgba(4, 19, 14, 0.14); box-shadow: none; }
+
+/* ---- 名牌、說明卡 ---- */
+.lbl b { background: var(--glass); box-shadow: inset 0 1px 0 var(--glass-edge), var(--ring), 0 8px 18px -10px rgba(0, 0, 0, 0.7); }
+.lbl .in > i::after { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.lbl.sel b { background: var(--accent); color: var(--accent-ink); }
+.card { border-radius: 26px; }
+.chip { box-shadow: inset 0 1px 0 var(--glass-edge), var(--ring), var(--shadow); }
+.lrow.on .sw, .daynight .seg-ind { background: var(--accent); }
+.daynight button.on { color: var(--accent-ink); }
+.variant .seg-ind { background: var(--accent); }
+.variant button.on { color: var(--accent-ink); }
+
+/* ---- 手機 ---- */
+@media (max-width: 620px) {
+  .round { width: 38px; height: 38px; }
+  .round svg { width: 20px; height: 20px; }
+  .vhead { gap: 8px; }
+  .vtitle { font-size: 16px; }
+  .vtitle svg { width: 16px; height: 16px; }
+  .menu { display: grid; }
+  .sys { display: none; }
+  .tools.open .sys {
+    display: grid; grid-template-columns: repeat(3, 44px); gap: 8px; justify-items: center;
+    position: absolute; top: calc(100% + 8px); right: 0; padding: 10px; border-radius: 24px; z-index: 5;
+    background: var(--glass); -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3);
+    box-shadow: inset 0 1px 0 var(--glass-edge), var(--ring), var(--shadow); transform-origin: top right;
+  }
+  .tools.open .sys .langs { grid-column: 1 / -1; justify-self: stretch; box-shadow: none; background: var(--glass2); }
+  .tools.open .sys .langs button { flex: 1; }
+  .tools.open .sys .round { box-shadow: none; background: var(--glass2); width: 44px; height: 44px; }
+  .tools.open .menu { background: var(--accent); color: var(--accent-ink); }
+
+  .bar { left: 12px; right: 12px; transform: none; max-width: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 4px; border-radius: 24px; }
+  .bar button, html[data-lang="zy"] .bar button { width: auto; height: 52px; min-height: 0; padding: 0; border-radius: 20px; font-size: 10px; gap: 1px; }
+  .bar button svg { width: 20px; height: 20px; }
+  .bar .more { display: grid; }
+  .bar .extra { display: none; }
+  .bar.expanded .extra { display: grid; grid-row: 1; }
+  .bar.expanded > :not(.extra) { grid-row: 2; }
+  .bar.expanded .more { background: var(--glass2); color: var(--ink); }
+  html[data-lang="zy"] .bar button > span { max-width: none; font-size: 10px; flex-wrap: nowrap; white-space: nowrap; }
+  html[data-lang="en"] .bar button > span { font-size: 10px; max-width: 70px; }
+
+  .stack { right: auto; left: 50%; transform: translateX(-50%); top: auto; flex-direction: row; gap: 2px; padding: 4px; border-radius: 22px; }
+  .stack.away { transform: translate(-50%, 16px); }
+  .stack button { width: auto; min-width: 30px; padding: 4px 6px; display: flex; align-items: center; gap: 4px; border-radius: 18px; }
+  .stack button .ic { width: 22px; height: 22px; }
+  .stack button .ic svg { width: 14px; height: 14px; }
+  .stack button .nm { display: none; font-size: 12px; }
+  .stack button.on { padding-right: 10px; }
+  .stack button.on .nm { display: block; }
+  .stack-ind { border-radius: 18px; }
+  .card { bottom: calc(max(18px, calc(env(safe-area-inset-bottom, 0px) + 8px)) + 108px); }
+  .hint { bottom: calc(max(18px, calc(env(safe-area-inset-bottom, 0px) + 8px)) + 150px); }
+}
+
+/* =====================================================================
+   入口：展廳
+   ===================================================================== */
+.home { position: fixed; inset: 0; display: grid; grid-template-rows: auto auto 1fr auto; background: var(--bg); color: var(--ink); overflow: hidden; }
+.htop { display: flex; align-items: center; justify-content: space-between; padding: max(20px, env(safe-area-inset-top, 0px)) var(--gut-r) 0 var(--gut); }
+.brand { color: inherit; text-decoration: none; }
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo .mark { width: 44px; height: 44px; stroke: none; overflow: visible; }
+.logo .word { display: grid; gap: 4px; line-height: 1; }
+.logo .word b { font: 800 22px/1 var(--f-sans); letter-spacing: -0.02em; }
+.logo .word span { font: 600 12px/1 var(--f-zh); color: var(--muted); letter-spacing: 0.06em; }
+.htabs { position: relative; justify-self: center; display: flex; gap: 2px; margin-top: 18px; padding: 4px; border-radius: 26px; max-width: calc(100vw - 32px); overflow-x: auto; scrollbar-width: none; touch-action: pan-x;
+  background: var(--glass); box-shadow: inset 0 1px 0 var(--glass-edge), var(--ring), var(--shadow); }
+.htabs::-webkit-scrollbar { display: none; }
+.htabs .seg-ind { border-radius: 22px; }
+.htabs button { position: relative; height: 40px; padding: 0 16px; border-radius: 22px; font: 700 14px/1 var(--f-zh); color: var(--muted); white-space: nowrap; flex: none; }
+html[data-lang="en"] .htabs button { font-family: var(--f-sans); }
+.htabs button.on { color: var(--accent-ink); }
+.htabs button.soon { opacity: 0.5; }
+.htabs button.soon.on { opacity: 1; }
+.stage { position: relative; min-height: 0; touch-action: none; }
+.stage .num { position: absolute; left: var(--gut); top: 18px; font: 300 120px/1 var(--f-sans); letter-spacing: -0.05em; color: var(--ink); opacity: 0.09; pointer-events: none; }
+.stage .num span { font-size: 24px; letter-spacing: 0; margin-left: 10px; }
+.stage .nav { position: absolute; top: 42%; transform: translateY(-50%); width: 52px; height: 52px; z-index: 2; }
+.stage .nav:active { transform: translateY(-50%) scale(0.88); }
+.stage .nav.l { left: var(--gut); }
+.stage .nav.r { right: var(--gut-r); }
+.plinth { position: absolute; left: 50%; bottom: 168px; width: min(820px, 86vw); height: 130px; transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--ink) 7%, transparent), transparent); pointer-events: none; }
+.hero { position: absolute; left: 0; right: 0; top: 4%; bottom: 210px; display: grid; place-items: center; cursor: pointer; }
+.hero img { width: min(720px, 84vw); height: 100%; object-fit: contain; -webkit-user-drag: none; filter: drop-shadow(0 30px 26px rgba(0, 0, 0, 0.35)); }
+.soonmark { color: var(--muted); opacity: 0.45; }
+.soonmark svg { width: 150px; height: 150px; stroke-width: 0.9; }
+.hlabel { position: absolute; left: 0; right: 0; bottom: 18px; display: grid; justify-items: center; gap: 6px; text-align: center; padding: 0 var(--gut); }
+.hlabel small { font: 600 14px/1.3 var(--f-zh); color: var(--muted); }
+.hlabel h1 { margin: 0; font: 800 42px/1.1 var(--f-sans); letter-spacing: -0.02em; }
+html:not([data-lang="en"]) .hlabel h1 { font-family: var(--f-sans), var(--f-zh); }
+.hlabel .meta { margin: 0; display: inline-flex; align-items: center; gap: 4px; font: 500 13px/1.4 var(--f-zh); color: var(--muted); }
+.hlabel .meta b { font: 700 14px var(--f-mono); color: var(--ink); }
+.hlabel .meta > i { width: 3px; height: 3px; border-radius: 50%; background: var(--muted); margin: 0 8px; }
+.cta { margin-top: 10px; height: 52px; padding: 0 26px 0 20px; display: inline-flex; align-items: center; gap: 10px; border-radius: 26px;
+  background: var(--accent); color: var(--accent-ink); font: 800 16px/1 var(--f-zh); box-shadow: 0 14px 30px -14px var(--accent); }
+html[data-lang="en"] .cta { font-family: var(--f-sans); }
+.cta svg { width: 22px; height: 22px; }
+.strip { display: flex; justify-content: center; gap: 10px; padding: 18px var(--gut) max(22px, env(safe-area-inset-bottom, 0px)); overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
+.strip::-webkit-scrollbar { display: none; }
+.th { position: relative; flex: none; width: 124px; height: 80px; border-radius: 18px; display: grid; place-items: center; padding: 18px 10px 6px;
+  background: var(--glass); box-shadow: inset 0 1px 0 var(--glass-edge), var(--ring), var(--shadow); }
+.th img { max-width: 100%; max-height: 100%; object-fit: contain; -webkit-user-drag: none; }
+.th .no { position: absolute; left: 10px; top: 7px; font: 500 9px/1 var(--f-mono); letter-spacing: 0.12em; color: var(--muted); }
+.th.on { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
+.th.on .no { color: var(--accent); }
+@media (max-width: 620px) {
+  .logo .mark { width: 34px; height: 34px; }
+  .logo .word b { font-size: 18px; }
+  .logo .word span { font-size: 11px; }
+  .htabs { justify-self: stretch; margin: 14px 12px 0; }
+  .htabs button { height: 36px; padding: 0 13px; font-size: 13px; }
+  .stage .num { font-size: 72px; top: 14px; }
+  .stage .num span { font-size: 16px; }
+  .stage .nav { display: none; }
+  .plinth { bottom: 178px; height: 80px; }
+  .hero { top: 10%; bottom: 196px; }
+  .hero img { width: 92vw; }
+  .soonmark svg { width: 110px; height: 110px; }
+  .hlabel h1 { font-size: 30px; }
+  .strip { justify-content: flex-start; gap: 8px; padding-top: 12px; }
+  .th { width: 92px; height: 62px; border-radius: 15px; padding-top: 16px; }
+}
+
+/* ---- 日夜切換：一圈晨昏色的光從日夜鍵擴散出去（和 Daybreak 同一套）。舊畫面在圈外、新畫面在圈內 ---- */
+@property --vr { syntax: '<length>'; inherits: false; initial-value: 0px; }
+:root[data-vt]::view-transition-old(root), :root[data-vt]::view-transition-new(root) { mix-blend-mode: normal; animation: vtR 1.25s cubic-bezier(.45, 0, .15, 1) both; }
+:root[data-vt]::view-transition-old(root) { -webkit-mask-image: radial-gradient(circle at var(--vx) var(--vy), transparent calc(var(--vr) + 2px), #000 calc(var(--vr) + 54px)); mask-image: radial-gradient(circle at var(--vx) var(--vy), transparent calc(var(--vr) + 2px), #000 calc(var(--vr) + 54px)); }
+:root[data-vt]::view-transition-new(root) { -webkit-mask-image: radial-gradient(circle at var(--vx) var(--vy), #000 calc(var(--vr) - 54px), transparent calc(var(--vr) - 2px)); mask-image: radial-gradient(circle at var(--vx) var(--vy), #000 calc(var(--vr) - 54px), transparent calc(var(--vr) - 2px)); }
+:root[data-vt]::view-transition-image-pair(root) { background: radial-gradient(circle at var(--vx) var(--vy), #FFE9CF, #FFC58A 28%, #FF8A45 60%, #E0561F); }
+@keyframes vtR { from { --vr: 0px; } to { --vr: var(--vR, 2600px); } }
+/* 日夜鍵的點陣圖示 */
+#themeBtn svg.dots { width: 22px; height: 22px; fill: currentColor; stroke: none; }
+.tools.open .sys #themeBtn svg.dots { width: 22px; height: 22px; }
+
+/* ---- 燈光面板：不要捲動條。列縮小一點；畫面矮的時候改成兩欄 ---- */
+@media (min-width: 621px) {
+  .lightcard { max-height: none; overflow: visible; padding: 16px 18px 16px; }
+  .lightcard .card-head h2 { font-size: 26px; }
+  .lightcard .daynight { margin: 10px 0 8px; }
+  .lightcard .daynight button { height: 38px; }
+  .lrows { gap: 2px; }
+  .lrow { grid-template-columns: 34px 1fr auto; padding: 4px 6px 4px 4px; font-size: 15px; }
+  .lrow .lic { width: 34px; height: 34px; }
+  .lrow .lic svg { width: 19px; height: 19px; }
+  .sw { width: 42px; height: 26px; }
+  .sw i { width: 20px; height: 20px; }
+  .lrow.on .sw i { transform: translateX(16px); }
+  .lall { margin-top: 8px; min-height: 38px; }
+}
+@media (min-width: 621px) and (max-height: 760px) {
+  .lightcard { width: min(560px, calc(100vw - 140px)); }
+  .lrows { grid-template-columns: 1fr 1fr; column-gap: 6px; }
+}
+/* 展廳的車：一定縮在框裡（矮的螢幕也不會蓋到車名） */
+.hero { display: block; }
+.hero img { position: absolute; left: 50%; top: 0; width: min(720px, 84vw); height: 100%; transform: translateX(-50%); object-fit: contain; }
+.hero .soonmark { position: absolute; inset: 0; display: grid; place-items: center; }
+@media (max-width: 620px) { .hero img { width: 92vw; } }

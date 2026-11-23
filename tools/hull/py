@@ -1,0 +1,2 @@
+#!/bin/zsh
+exec ~/.local/bin/uv run -q --with numpy --with scipy --with pillow --with scikit-image --with opencv-python-headless --with matplotlib python -u "$@"
