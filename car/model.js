@@ -168,7 +168,9 @@ function skMaterial(name, part, tag = '') {
       return phys({color: '#848990', metalness: 0.5, roughness: 0.38, clearcoat: 0.35, clearcoatRoughness: 0.25, envMapIntensity: 0.65});
     case 'glass_base':
       if (part === 'liftgate') return phys({color: '#060709', roughness: 0.25, specularIntensity: 0.12, envMapIntensity: 0.12, transparent: true, opacity: 0.96, depthWrite: false});
-      return phys({color: '#0c1215', roughness: 0.06, metalness: 0.1, transparent: true, opacity: part === 'windshield' ? 0.6 : 0.8, envMapIntensity: 0.55, depthWrite: false});
+      // 擋風玻璃：太陽和棚燈在玻璃上的倒影收弱，不然從前上方看會像車裡有一團白光
+      if (part === 'windshield') return phys({color: '#0c1215', roughness: 0.06, metalness: 0.1, specularIntensity: 0.12, transparent: true, opacity: 0.6, envMapIntensity: 0.25, depthWrite: false});
+      return phys({color: '#0c1215', roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.8, envMapIntensity: 0.55, depthWrite: false});
     case 'glass_roof_panorama':
       return phys({color: '#060709', roughness: 0.22, specularIntensity: 0.15, envMapIntensity: 0.15, transparent: true, opacity: 0.96, depthWrite: false});
     case 'glass_headlight222':
@@ -477,19 +479,19 @@ export function buildCar() {
   }
   {
     // 中控螢幕 15.4 吋（橫的，浮在儀表板上）
+    // 一個組：螢幕面向車廂（往後），背板和支架黏在它後面，整組往後仰一點
     const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.215), new THREE.MeshStandardMaterial({map: screenTex(680, 430), emissive: '#ffffff', emissiveMap: screenTex(680, 430), emissiveIntensity: 0.55, roughness: 0.3}));
-    scr.position.set(0.66, 1.1, 0);
-    scr.rotation.set(0, Math.PI / 2, 0);
-    scr.rotateX(-0.25);
-    const back = mesh(span([0.67, 1.0, -0.18], [0.69, 1.21, 0.18], 0.012), mat.plastic('#141517', 0.5));
-    back.rotation.z = 0.25;
-    back.position.set(-0.24, 0.17, 0);
-    const stand = mesh(span([0.7, 0.95, -0.03], [0.74, 1.02, 0.03], 0.01), mat.plastic('#141517', 0.5));
+    const back = mesh(span([-0.18, -0.115, -0.024], [0.18, 0.115, -0.004], 0.008), mat.plastic('#141517', 0.5));
+    const stem = mesh(span([-0.03, -0.24, -0.034], [0.03, -0.1, -0.012], 0.008), mat.plastic('#141517', 0.5));
+    const unit = new THREE.Group();
+    unit.add(scr, back, stem);
+    unit.position.set(0.64, 1.17, 0);
+    unit.rotation.set(-0.2, -Math.PI / 2, 0, 'YXZ');
     // 後座的 8 吋螢幕
     const rs = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.11), new THREE.MeshStandardMaterial({map: screenTex(360, 220, true), emissive: '#ffffff', emissiveMap: screenTex(360, 220, true), emissiveIntensity: 0.5}));
     rs.position.set(-0.425, 0.64, 0);
     rs.rotation.y = -Math.PI / 2;
-    piece('screen', [scr, back, stand], [0.35, 1.25, -1.7], 3);
+    piece('screen', [unit],[0.35, 1.25, -1.7], 3);
     piece('rearScreen', [rs], [-0.6, 0.95, -1.55], 3);
   }
   {

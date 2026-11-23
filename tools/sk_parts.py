@@ -65,6 +65,8 @@ for o in load('chassis', 1.0):
         if near < 0.45 and abs(c[2]) > 0.6 and c[1] < 0.75: continue  # 輪胎、輪圈
         if mx[0] > 2.0 or mn[0] < -1.95 or mn[1] < 0.1: continue  # 前後保險桿鋼樑、最底下的護板：會從 Model Y 的車殼穿出來
         if abs(c[0]) < 1.05 and mx[1] < 0.42 and abs(c[2]) < 0.72 and (mx[0] - mn[0]) > 0.25: continue  # 電池底板
+        if mn[1] > 0.8 and near > 0.6:  # 整塊浮在地板上、又不在前後軸上：Model X 底盤模型裡的空調箱佔位方塊，會從座椅中間冒出來
+            print('DROP cabin block', np.round(mn, 2), np.round(mx, 2)); continue
         part = 'suspension' if (near < 0.6 and abs(c[2]) > 0.25) else 'casting'
         tag = ('F' if c[0] > 0 else 'R') + (('L' if c[2] < 0 else 'R') if part == 'suspension' and abs(c[2]) > 0.15 else '')  # 避震器再分左右，名牌才落在輪子旁
         add(part, 'ch_' + mname, col, P, T, tag)  # 前、後分開（名牌和拆開的方向才對）
