@@ -11,7 +11,7 @@ import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {Pass} from 'three/addons/postprocessing/Pass.js';
 import {createSound} from './sound.js';
 import {L, Lp, H, HP, esc, getLang, setLang} from './i18n.js';
-import {sysMenu, bindSys, ICON2, spring, scramble} from './ui.js';
+import {sysMenu, bindSys, ICON2, spring, scramble, getTheme, setTheme} from './ui.js';
 
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 export const clamp01 = (x) => Math.min(1, Math.max(0, x));
@@ -327,12 +327,22 @@ ${
   const bgCol = new THREE.Color();
   const DAY = {bg: new THREE.Color(), ground: new THREE.Color(), line: new THREE.Color()};
   scene.background = new THREE.Color();
-  const applyTheme = () => {
+  // 3D 的「白天」一律用淺色版的天空和地面（晚上另外有夜色）：切換時才是從白天慢慢變成晚上，不會先跳成深色
+  {
+    const de = document.documentElement;
+    const was = de.dataset.theme;
+    de.dataset.theme = 'light';
     DAY.bg.set(css('--bg'));
     DAY.ground.set(css('--ground'));
     DAY.line.set(css('--road-line'));
+    de.dataset.theme = was;
+  }
+  const applyTheme = () => {
     shadeMat.color.set(css('--shadow-ink'));
     accent.set(css('--accent'));
+    // 頁面換成晚上／白天（右上角的日夜鍵）：3D 場景跟著換
+    const dark = getTheme() === 'dark';
+    if (V.LIGHTS && S.night !== undefined && S.night !== dark) setNight(dark, {quiet: true});
     applyNight(S.nightK || 0);
   };
   const hemi = scene.children.find((o) => o.isHemisphereLight);
@@ -796,6 +806,8 @@ ${
   function setNight(on, {quiet = false} = {}) {
     if (!V.LIGHTS || S.night === on) return;
     S.night = on;
+    // 同一個白天／晚上：燈光面板切了，頁面也跟著換（記住這次的選擇）
+    if ((getTheme() === 'dark') !== on) setTheme(on ? 'dark' : 'light');
     for (const b of app.querySelectorAll('#dayNight button')) b.classList.toggle('on', +b.dataset.n === (on ? 1 : 0));
     moveSegInd($('#dayNight'));
     if (!quiet) sayPair(on ? '天黑了，燈光看得比較清楚。' : '天亮了。', on ? 'It’s night now, so the lights are easy to see.' : 'It’s daytime again.');
@@ -838,9 +850,11 @@ ${
   };
   ctx.setNight = setNight;
   if (V.LIGHTS) {
-    S.night = false;
-    S.nightK = 0;
-    $('#dayNight button[data-n="0"]').classList.add('on');
+    // 一開始照頁面現在是白天還是晚上
+    S.night = getTheme() === 'dark';
+    S.nightK = S.night ? 1 : 0;
+    $(`#dayNight button[data-n="${S.night ? 1 : 0}"]`).classList.add('on');
+    applyNight(S.nightK);
     lightToggle = () => {
       const lc = $('#lightCard');
       if (lc.hidden) {

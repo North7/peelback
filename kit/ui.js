@@ -14,20 +14,21 @@ export const ICON2 = {
   view: '<svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v3.8h3.8"/></svg>',
 };
 
-// ---------- 日夜（深色是預設） ----------
+// ---------- 日夜（白天是預設）----------
+// 整個網站只有一個白天／晚上：頁面深淺色、3D 場景的天色、燈光面板裡的切換都是同一個（2026-11-24 改：原本頁面和場景各管各的，會打架）
 const TKEY = 'peelback.theme';
 export const getTheme = () => {
   try {
-    return localStorage.getItem(TKEY) === 'light' ? 'light' : 'dark';
+    return localStorage.getItem(TKEY) === 'dark' ? 'dark' : 'light';
   } catch {
-    return 'dark';
+    return 'light';
   }
 };
 export function applyThemeAttr(t = getTheme()) {
   document.documentElement.dataset.theme = t;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'light' ? '#f3f1ea' : '#070808');
 }
-function setTheme(t) {
+export function setTheme(t) {
   try {
     localStorage.setItem(TKEY, t);
   } catch {
