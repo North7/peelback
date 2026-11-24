@@ -4,6 +4,8 @@
 //   7 車 61（含 4 個輪椅位）、8 車 96、9 車 85、10 車 96、11 車 85、12 車 68。標準車廂一排 3+2、排距 1.04 m；商務車廂 2+2、排距 1.12 m。
 // 編組 Tc-M2-MP-M1-T-M1s-MP-M2-M1-MP-M2-Tc：9 節有馬達、3 節沒有（1、5、12 車），馬達 36 個 × 285 kW＝10,260 kW；重 503 公噸；最高營運時速 300 公里；
 //   電是架空線的 25,000 伏特交流電（維基百科）。集電弓在 4、9 車（英文維基百科）。廁所在 1、3、5、7、9、11 車，販賣機在 1、5、11 車（官網座位圖、日文維基百科）。
+// 動力：每 4 節一組動力單元（3 節有馬達、1 節沒有），單元之間（4–5、8–9 車）有特高壓電線的接頭（2427junction 台灣高鐵車輛介紹）；集電弓在 4、9 車。
+//   每節車底下的機器高鐵沒有公布，照原型日本 700 系的放法推（日文維基百科「新幹線 700 系」：M 車放主變壓器、M1 車一台主變換裝置、M2 車兩台、T 車放輔助電源和空壓機）。
 // 座椅顏色：標準車廂青綠色、商務車廂紫色（2025 年新車 N700ST 的報導拿現行 700T 來比）。車頭鼻子長 8 公尺（NOWnews 2025）。
 
 export const SPEC = {
@@ -52,9 +54,6 @@ export const PARTS = {
   windows: {name: '車窗', en: 'windows',
     say: '窗戶一格一格排在座位旁邊。有幾片是緊急逃生窗，旁邊放著敲破玻璃用的小鎚子。',
     fact: '每節車廂左右各有 3 片緊急逃生窗。'},
-  pantograph: {name: '集電弓', en: 'pantograph',
-    say: '車頂上像手臂一樣的架子叫集電弓，它頂著上面的電線，把電送進火車裡，讓馬達轉起來。',
-    fact: '電線上的電有 25,000 伏特，是家裡插座的 200 多倍，千萬不能靠近！'},
   cab: {name: '駕駛室', en: 'cab',
     say: '司機坐在鼻子後面的駕駛室開火車。高鐵頭尾兩邊都有駕駛室，到了終點不用掉頭，司機走到另一頭就能往回開。',
     fact: '最快可以開到每小時 300 公里。'},
@@ -86,8 +85,29 @@ export const PARTS = {
     say: '火車的輪子是鐵做的，兩個輪子用一根車軸連在一起，邊上有一圈凸起來，卡在鐵軌內側才不會掉下去。',
     fact: '整列有 48 根車軸、96 個車輪。'},
   motors: {name: '馬達', en: 'traction motors',
-    say: '高鐵沒有引擎，是用電動馬達讓輪子轉。12 節裡有 9 節有馬達，1、5、12 車沒有。',
-    fact: '一共 36 個馬達，每個 285 千瓦，加起來 10,260 千瓦。'},
+    say: '高鐵沒有引擎，是電動馬達讓輪子轉。每節動力車底下有 4 個，一根車軸一個，掛在轉向架上。',
+    fact: '9 節動力車一共 36 個馬達，每個 285 千瓦，加起來 10,260 千瓦。'},
+  pantograph: {name: '集電弓', en: 'pantographs',
+    say: '車頂上像手臂一樣的架子叫集電弓，它頂著上面的電線，把電拿進火車裡。整列只有 4 車和 9 車有。',
+    fact: '電線上的電有 25,000 伏特，是家裡插座的 200 多倍，千萬不能靠近！'},
+  hvCable: {name: '車頂高壓電線', en: 'roof high-voltage cable',
+    say: '集電弓拿到的電，沿著車頂一條很粗的電線，送到前、中、後三組動力單元。',
+    fact: '4、5 車中間和 8、9 車中間，有專門接這條電線的接頭。'},
+  transformer: {name: '主變壓器', en: 'main transformers',
+    say: '25,000 伏特太高了，馬達不能直接用。主變壓器在車底下，把電變小一點。',
+    fact: '每 4 節一台，整列 3 台，在 3、7、10 車底下。'},
+  converter: {name: '主變流器', en: 'traction converters',
+    say: '主變流器把電變成馬達要的樣子：司機要開快一點，它就讓馬達轉快一點；要煞車的時候，馬達反過來發電。',
+    fact: '整列 9 台，每台管 4 個馬達。2、8、11 車各兩台，4、6、9 車各一台。'},
+  aux: {name: '輔助電源', en: 'auxiliary power',
+    say: '沒有馬達的車廂底下，放著輔助電源和空氣壓縮機，給冷氣、電燈用電，還有煞車要用的壓縮空氣。',
+    fact: '在 1、5、12 車底下。'},
+  motorCars: {name: '動力車', en: 'motor cars',
+    say: '車廂底下有馬達的叫動力車，它們的輪子會出力，推著整列火車往前跑。',
+    fact: '2、3、4、6、7、8、9、10、11 車，一共 9 節。'},
+  trailerCars: {name: '拖車', en: 'trailer cars',
+    say: '沒有馬達的車廂叫拖車，被前後的動力車帶著走。高鐵兩頭的車頭都是拖車喔！',
+    fact: '1、5、12 車，一共 3 節。每 4 節裡有 3 節動力車、1 節拖車。'},
 };
 
 export const partText = (id) => PARTS[id];
@@ -97,7 +117,6 @@ const EN = {
   nose: ['The front of the train has a long, flat nose, like a duck’s bill. That way it doesn’t make a loud BOOM when it rushes into a tunnel.', 'The nose is 8 meters long, about two cars in a row.'],
   body: ['A THSR train has 12 cars. The body is made of aluminium, light and strong, white with an orange stripe and a black stripe.', 'All 12 cars together are 304 meters long, about 25 buses in a row.'],
   windows: ['A row of windows runs along the seats. A few are emergency windows, with a little hammer next to them for breaking the glass.', 'Each car has 3 emergency windows on each side.'],
-  pantograph: ['The arm on the roof is called a pantograph. It presses against the wire above and brings electricity into the train to turn the motors.', 'The wire carries 25,000 volts, over 200 times a home socket. Never go near it!'],
   cab: ['The driver sits in the cab behind the nose. There’s a cab at each end, so at the last stop the train doesn’t turn around: the driver just walks to the other end.', 'It can go up to 300 km an hour.'],
   standard: ['Most people ride in the standard cars. The teal seats come 5 to a row: 3 on one side, 2 on the other. Whole rows can spin around so they always face forward.', 'The 11 standard cars have 911 seats.'],
   business: ['Car 6 is the business car. Its purple seats are bigger, only 4 to a row, and every seat has a power socket.', '66 seats. The whole train has 977 seats.'],
@@ -108,6 +127,13 @@ const EN = {
   saloon: ['The floor and walls of the cars. The little space by the doors is the vestibule, where everyone gets on and off.', 'The floor is 1.25 meters above the rails, as high as the platform, so there are no steps.'],
   bogie: ['Under each car are two bogies. They hold the car up, turn with the track on curves, and have springs so the ride is smooth.', '2 per car, 24 on the whole train.'],
   wheels: ['Train wheels are made of steel. Two wheels are joined by an axle, and a raised rim on each wheel hooks inside the rail so it can’t slip off.', '48 axles and 96 wheels on the whole train.'],
-  motors: ['A THSR train has no engine: electric motors turn the wheels. 9 of the 12 cars have motors; cars 1, 5 and 12 don’t.', '36 motors, 285 kW each, 10,260 kW in all.'],
+  motors: ['A THSR train has no engine: electric motors turn the wheels. Each motor car has 4, one per axle, hung on the bogies.', 'The 9 motor cars have 36 motors, 285 kW each, 10,260 kW in all.'],
+  pantograph: ['The arms on the roof are pantographs. They press against the wire above and bring electricity into the train. Only cars 4 and 9 have one.', 'The wire carries 25,000 volts, over 200 times a home socket. Never go near it!'],
+  hvCable: ['Electricity from the pantographs runs along a thick cable on the roof to the front, middle and back power units.', 'There are cable joints between cars 4 and 5, and between cars 8 and 9.'],
+  transformer: ['25,000 volts is too much for the motors. The main transformer under the floor turns it down.', 'One for every 4 cars, 3 in all, under cars 3, 7 and 10.'],
+  converter: ['The traction converter shapes the electricity for the motors: faster when the driver speeds up, and when braking the motors work backwards and make electricity.', '9 in all, each running 4 motors. Cars 2, 8 and 11 have two each; cars 4, 6 and 9 have one.'],
+  aux: ['Under the cars without motors are the auxiliary power unit and the air compressor, for the air conditioning, lights and the air the brakes use.', 'Under cars 1, 5 and 12.'],
+  motorCars: ['Cars with motors underneath are motor cars. Their wheels push the whole train forward.', 'Cars 2, 3, 4, 6, 7, 8, 9, 10 and 11: 9 cars.'],
+  trailerCars: ['Cars without motors are trailer cars, pulled along by the motor cars. Both end cars with the noses are trailers!', 'Cars 1, 5 and 12: 3 cars. Out of every 4 cars, 3 are motor cars and 1 is a trailer.'],
 };
 for (const [k, [sayEn, factEn]] of Object.entries(EN)) Object.assign(PARTS[k], {sayEn, factEn});

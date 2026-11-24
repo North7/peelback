@@ -412,8 +412,10 @@ ${
     S.lastInput = performance.now();
   });
   // 很長的車（火車）：框一層、一個零件、標名牌時，只框最前面 C.frameLen 那一段（不然整列 300 公尺塞進畫面，什麼都看不清楚）
-  const clipBox = (box) => {
-    if (C.frameLen && !box.isEmpty() && box.max.x - box.min.x > C.frameLen) box.min.x = box.max.x - C.frameLen;
+  // frameLen 可以是一個數字，或 {default, 層號或零件 id: 長度}（例如火車的動力層要框一整組 4 節）
+  const clipBox = (box, key) => {
+    const len = C.frameLen && typeof C.frameLen === 'object' ? (C.frameLen[key] ?? C.frameLen.default) : C.frameLen;
+    if (len && !box.isEmpty() && box.max.x - box.min.x > len) box.min.x = box.max.x - len;
     return box;
   };
   const HOME_DIR = new THREE.Vector3(...C.home).normalize();
@@ -544,7 +546,7 @@ ${
         p.obj.rotation.x = rx;
         p.obj.updateMatrixWorld(true);
       }
-    clipBox(box);
+    clipBox(box, n);
     const c = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     const dir = camera.position.clone().sub(controls.target).normalize();
@@ -608,7 +610,7 @@ ${
   const flyTo = (id) => {
     const box = new THREE.Box3();
     for (const pc of model.parts[id].pieces) box.expandByObject(pc.obj);
-    clipBox(box);
+    clipBox(box, id);
     const c = box.getCenter(new THREE.Vector3());
     const r = box.getSize(new THREE.Vector3()).length() / 2;
     const dir = camera.position.clone().sub(controls.target).normalize();
@@ -750,6 +752,12 @@ ${
     view.want = dir.multiplyScalar(THREE.MathUtils.clamp(fitDistance(r * 0.85 + 1.2, r * 0.95 + 1.4), 5, 26)).add(c);
   }
   ctx.setLight = setLight;
+  /** 示範用：鏡頭飛到某一點（世界座標），dist 是離多遠，dir 不給就用現在的方向 */
+  ctx.look = (target, dist, dir) => {
+    view.wantTarget.set(...target);
+    const d = (dir ? new THREE.Vector3(...dir) : camera.position.clone().sub(controls.target)).normalize();
+    view.want = d.multiplyScalar(dist).add(view.wantTarget);
+  };
   ctx.setNight = setNight;
   if (V.LIGHTS) {
     S.night = false;
@@ -1042,7 +1050,7 @@ ${
     if (S.selected && !S.labelsOn) {
       tmpBox.makeEmpty();
       for (const pc of model.parts[S.selected].pieces) tmpBox.expandByObject(pc.obj);
-      clipBox(tmpBox);
+      clipBox(tmpBox, S.selected);
       tmpBox.getCenter(tmpV);
       tmpV.y = tmpBox.max.y;
       tmpV.project(camera);
@@ -1112,12 +1120,12 @@ ${
       let big = 0;
       for (const m of model.parts[id].meshes) {
         if (!m.visible || !m.parent?.visible) continue;
-        clipBox(labelBox.makeEmpty().expandByObject(m));
+        clipBox(labelBox.makeEmpty().expandByObject(m), id);
         if (!labelBox.isEmpty()) big = Math.max(big, labelBox.getSize(labelC).length());
       }
       for (const m of model.parts[id].meshes) {
         if (!m.visible) continue;
-        clipBox(labelBox.makeEmpty().expandByObject(m));
+        clipBox(labelBox.makeEmpty().expandByObject(m), id);
         if (labelBox.isEmpty() || labelBox.getSize(labelC).length() < big * 0.35) continue;
         labelBox.getCenter(labelC);
         const d = labelC.distanceToSquared(camPos);

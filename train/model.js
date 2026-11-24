@@ -3,7 +3,7 @@
 // 外殼、轉向架、車廂裡的牆和地板、駕駛室：Sketchfab 上 Basic Hsu 做的 700T 車頭和客車廂（CC BY 4.0），
 //   照實車尺寸校正、拆成零件（tools/train_export.py → train/sk/）。1、12 車用車頭那一節（12 車轉 180 度），2–11 車用客車廂。
 // 座位不用模型裡的：照高鐵官網的座位圖一節一節排（977 個），標準車廂青綠色、商務車廂紫色。
-// 集電弓、馬達、車頭燈、鐵軌是這裡畫的示意。
+// 集電弓、特高壓電線、主變壓器、主變流器、輔助電源、馬達、車頭燈、鐵軌是這裡畫的示意（位置照編組推，見第四層的說明）。
 import * as THREE from 'three';
 import {unzlibSync} from 'three/addons/libs/fflate.module.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -275,9 +275,9 @@ export function buildTrain() {
   };
 
   // ================= 第一層：外面 =================
-  piece('nose', skPart('body', {mids: []}), [0, 9, 0], 1);
-  piece('body', skPart('body', {ends: []}), [0, 9, 0], 1);
-  piece('windows', skPart('windows'), [0, 9, 0], 1);
+  piece('nose', skPart('body', {mids: []}), [0, 14, 0], 1);
+  piece('body', skPart('body', {ends: []}), [0, 14, 0], 1);
+  piece('windows', skPart('windows'), [0, 14, 0], 1);
   {
     // 集電弓（4、9 車）：單臂式，底座、下臂、上臂、頂上的弓（碰電線那一條）
     const geo = [];
@@ -293,24 +293,24 @@ export function buildTrain() {
       geo.push(span([x - 0.42, roof + 1.25, -0.8], [x - 0.28, roof + 1.32, 0.8], 0.02));
       geo.push(span([x - 0.46, roof + 1.3, -0.55], [x - 0.24, roof + 1.36, 0.55], 0.02));
     }
-    piece('pantograph', [mesh(merge(frame), mat.plastic('#c9ccd0', 0.4)), mesh(merge(geo), mat.metal('#5c6268', 0.35))], [0, 12, 0], 1);
+    piece('pantograph', [mesh(merge(frame), mat.plastic('#c9ccd0', 0.4)), mesh(merge(geo), mat.metal('#5c6268', 0.35))], [0, 1.2, 0], 4);
   }
 
   // ================= 第二層：裡面 =================
-  piece('cab', skPart('cab', {mids: []}), [0, 5.5, 0], 2);
+  piece('cab', skPart('cab', {mids: []}), [0, 9.5, 0], 2);
   {
     const s = seatGeo(0.45);
     const b = seatGeo(0.55);
     const coverM = mat.fabric(COL.cover);
     const frameM = mat.metal(COL.frame, 0.45);
-    piece('standard', [seatInstances(SEATS.std, s.fab, mat.fabric(COL.teal)), seatInstances(SEATS.std, s.cover, coverM), seatInstances(SEATS.std, s.frame, frameM)], [0, 5.5, 0], 2);
-    piece('business', [seatInstances(SEATS.biz, b.fab, mat.fabric(COL.purple)), seatInstances(SEATS.biz, b.cover, coverM), seatInstances(SEATS.biz, b.frame, frameM)], [0, 5.5, 0], 2);
+    piece('standard', [seatInstances(SEATS.std, s.fab, mat.fabric(COL.teal)), seatInstances(SEATS.std, s.cover, coverM), seatInstances(SEATS.std, s.frame, frameM)], [0, 9.5, 0], 2);
+    piece('business', [seatInstances(SEATS.biz, b.fab, mat.fabric(COL.purple)), seatInstances(SEATS.biz, b.cover, coverM), seatInstances(SEATS.biz, b.frame, frameM)], [0, 9.5, 0], 2);
     // 7 車的輪椅位：地上一塊藍色的區域＋4 個位子
     const x7 = SEATS.wheel.reduce((a, s) => a + s.x, 0) / SEATS.wheel.length;
     const pad = mesh(span([x7 - 1.3, FLOOR, -1.45], [x7 + 1.3, FLOOR + 0.012, 1.45], 0.005), mat.plastic('#2f6fd6', 0.7));
-    piece('accessible', [pad, seatInstances(SEATS.wheel, s.fab, mat.fabric(COL.teal)), seatInstances(SEATS.wheel, s.cover, coverM), seatInstances(SEATS.wheel, s.frame, frameM)], [0, 5.5, 0], 2);
+    piece('accessible', [pad, seatInstances(SEATS.wheel, s.fab, mat.fabric(COL.teal)), seatInstances(SEATS.wheel, s.cover, coverM), seatInstances(SEATS.wheel, s.frame, frameM)], [0, 9.5, 0], 2);
   }
-  piece('racks', skPart('racks'), [0, 7, 0], 2);
+  piece('racks', skPart('racks'), [0, 11, 0], 2);
   {
     // 廁所：車頭那一節模型裡有一間（在車尾那頭），複製到有廁所的車廂（1、3、5、7、9、11 車）的北邊那頭
     const toiletCars = CARS.map((c, k) => (c.toilet ? k : -1)).filter((k) => k >= 0);
@@ -323,7 +323,7 @@ export function buildTrain() {
       const Ms = toiletCars.map((k) => new THREE.Matrix4().makeTranslation(CAR_X[k] + (k === 0 ? lx : -LEN_MID / 2 + 1.6), 0, 0));
       out.push(mesh(placed(geo.translate(-lx, 0, 0), Ms), skMat(g.mat, 'toilet')));
     }
-    piece('toilet', out, [0, 5.5, 0], 2);
+    piece('toilet', out, [0, 9.5, 0], 2);
   }
   {
     const vendCars = CARS.map((c, k) => (c.vending ? k : -1)).filter((k) => k >= 0);
@@ -335,10 +335,10 @@ export function buildTrain() {
       const Ms = vendCars.map((k) => new THREE.Matrix4().makeTranslation(CAR_X[k] + (k === 0 ? lx : -LEN_MID / 2 + 1.0), 0, 0));
       out.push(mesh(placed(geo.translate(-lx, 0, 0), Ms), skMat(g.mat, 'vending')));
     }
-    piece('vending', out, [0, 5.5, 0], 2);
+    piece('vending', out, [0, 9.5, 0], 2);
   }
   // 地板、牆、玄關、天花板（12 車的那一節沒有廁所和販賣機，模型裡本來就是分開的零件）
-  piece('saloon', skPart('interior'), [0, 3.2, 0], 2);
+  piece('saloon', skPart('interior'), [0, 7.5, 0], 2); // 第四層的集電弓、車頂電線在車頂上方，裡面的東西要抬得比它們高
 
   // ================= 第三層：車底 =================
   piece('bogie', skPart('bogie'), [0, -0.3, 4.5], 3); // 車底的東西往旁邊（鏡頭這邊）移出來，放在鐵軌旁邊
@@ -346,12 +346,13 @@ export function buildTrain() {
   {
     // 牽引馬達：有馬達的車（1、5、12 車以外）每根車軸一個，掛在轉向架上、兩根車軸中間
     // 客車廂模型量到：轉向架中心在 +8.69、-8.47 m，軸距 2.53 m
-    const g = [];
+    const g = {};
     for (const [i, car] of CARS.entries()) {
       if (car.type === 'T' || car.type === 'Tc') continue;
-      for (const b of [8.69, -8.47]) for (const a of [-1, 1]) g.push(cylZ(0.25, 0.6, CAR_X[i] + b + a * 0.6, R_WHEEL + 0.02, a * 0.15, 20));
+      for (const b of [8.69, -8.47]) for (const a of [-1, 1]) (g[i] ||= []).push(cylZ(0.25, 0.6, CAR_X[i] + b + a * 0.6, R_WHEEL + 0.02, a * 0.15, 20));
     }
-    piece('motors', [mesh(merge(g), mat.metal('#3d4248', 0.45))], [0, -0.3, 9.5], 3);
+    const motorM = mat.metal('#b07a35', 0.4);
+    piece('motors', Object.values(g).map((gs) => mesh(merge(gs), motorM)), [0, 0, 0], 4); // 第四層（動力）：留在原位，看得出在哪一節
   }
 
   // ---------- 燈：車頭燈（白）、車尾燈（紅）：1 車往南開，車頭燈亮；12 車是車尾，尾燈亮 ----------
@@ -391,6 +392,82 @@ export function buildTrain() {
     root.add(track);
   }
   // 整列往上抬：鐵軌的道床底在地面上
+  /** 每一節各自一個網格（名牌才會貼在真的那一台機器上，不會落在整列的正中間） */
+  const perCar = (byCar, m) => Object.values(byCar).map((gs) => mesh(merge(gs), m));
+  const addTo = (byCar, i, g) => (byCar[i] ||= []).push(g);
+  // ================= 第四層：動力 =================
+  // 每 4 節是一組動力單元（3 節有馬達、1 節沒有）：1–4、5–8、9–12 車。
+  // 集電弓在 4、9 車；車頂的特高壓電線把電送到三組；單元之間（4–5、8–9 車）有電線的接頭。
+  // 每節車底下放什麼，高鐵沒有公布：照 700T 的原型日本 700 系的放法（M 車放主變壓器、M1 車一台主變流器、M2 車兩台、T 車放輔助電源和空壓機）
+  //   套到 700T 的編組代號（Tc-M2-MP-M1-T-M1s-MP-M2-M1-MP-M2-Tc）：主變壓器在 3、7、10 車，主變流器 2、8、11 車各兩台、4、6、9 車各一台，輔助電源在 1、5、12 車。
+  {
+    const ROOF = 3.65;
+    const idx = (f) => CARS.map((c, k) => (f(c) ? k : -1)).filter((k) => k >= 0);
+    // 特高壓電線：車頂上從 3 車拉到 10 車，接到兩支集電弓；單元交界有接頭；主變壓器那三節有一段往下接
+    const cab = [];
+    const x3 = CAR_X[2] + LEN_MID / 2 - 1;
+    const x10 = CAR_X[9] - LEN_MID / 2 + 1;
+    cab.push(cylX(0.045, x3 - x10, (x3 + x10) / 2, ROOF + 0.12, 0.55, 10));
+    for (const i of idx((c) => c.panto)) cab.push(rod([CAR_X[i] + 6.5, ROOF + 0.12, 0.55], [CAR_X[i] + 6.5, ROOF + 0.25, 0.1], 0.04));
+    for (const i of [3, 7]) cab.push(cylX(0.12, 0.6, (CAR_X[i] + CAR_X[i + 1]) / 2, ROOF + 0.12, 0.55, 14)); // 4–5、8–9 車中間的接頭
+    for (const i of idx((c) => c.type === 'MP')) cab.push(rod([CAR_X[i], ROOF + 0.12, 0.55], [CAR_X[i], ROOF - 0.05, 0.55], 0.04));
+    piece('hvCable', [mesh(merge(cab), mat.plastic('#d8572a', 0.5))], [0, 1.2, 0], 4);
+    // 主變壓器（3、7、10 車）：車底中間一個大箱子，旁邊有散熱風扇
+    const tr = {};
+    for (const i of idx((c) => c.type === 'MP')) {
+      const x = CAR_X[i];
+      addTo(tr, i, box([x - 1.5, 0.55, -1.15], [x + 1.5, 1.12, 1.15]));
+      for (const dx of [-0.8, 0.8]) addTo(tr, i, cylZ(0.24, 0.08, x + dx, 0.83, 1.18, 18));
+    }
+    piece('transformer', perCar(tr, mat.metal('#4a5f7a', 0.45)), [0, 0, 0], 4);
+    // 主變流器：M2 車（2、8、11）兩台、M1 車（4、6、9）一台
+    const cv = {};
+    for (const [i, c] of CARS.entries()) {
+      const n = c.type === 'M2' ? 2 : c.type === 'M1' || c.type === 'M1s' ? 1 : 0;
+      for (let k = 0; k < n; k++) addTo(cv, i, box([CAR_X[i] + (k ? -4.4 : 2.4), 0.6, -1.0], [CAR_X[i] + (k ? -2.4 : 4.4), 1.1, 1.0]));
+    }
+    piece('converter', perCar(cv, mat.metal('#3f7a6b', 0.45)), [0, 0, 0], 4);
+    // 輔助電源和空氣壓縮機（沒有馬達的 1、5、12 車）
+    const ax = {};
+    for (const i of idx((c) => c.type === 'T' || c.type === 'Tc')) {
+      const x = CAR_X[i] + (i === 0 ? -1 : i === 11 ? 1 : 0);
+      addTo(ax, i, box([x - 1.2, 0.6, -1.0], [x + 1.2, 1.1, 1.0]));
+      addTo(ax, i, cylX(0.22, 1.2, x + 2.2, 0.8, 0.4, 16));
+    }
+    piece('aux', perCar(ax, mat.metal('#8e949b', 0.45)), [0, 0, 0], 4);
+    // 地上的牌子：每一節一塊，寫「幾車・動力車／拖車」。平常藏在地面下，拆到動力那一層才冒出來，排在鐵軌旁邊（鏡頭這一邊）
+    const plate = (i, motor) => {
+      const len = (i === 0 || i === 11 ? LEN_END : LEN_MID) - 1.2;
+      const t = (() => {
+        const c = document.createElement('canvas');
+        c.width = 1280;
+        c.height = 128;
+        const g = c.getContext('2d');
+        g.fillStyle = motor ? '#e8742c' : '#9aa0a6';
+        g.beginPath();
+        g.roundRect(4, 4, 1272, 120, 40);
+        g.fill();
+        g.fillStyle = '#ffffff';
+        g.font = '700 72px "Noto Sans TC", "PingFang TC", sans-serif';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText(`${i + 1} 車・${motor ? '動力車' : '拖車'}`, 640, 68);
+        const tx = new THREE.CanvasTexture(c);
+        tx.colorSpace = THREE.SRGBColorSpace;
+        tx.anisotropy = 8;
+        return tx;
+      })();
+      const g = new THREE.PlaneGeometry(len, len / 10);
+      g.rotateX(-Math.PI / 2);
+      g.translate(CAR_X[i], -1.2, 3.3);
+      const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({map: t, roughness: 0.8, transparent: true}));
+      m.receiveShadow = true;
+      return m;
+    };
+    piece('motorCars', CARS.map((c, i) => (c.type.startsWith('M') ? plate(i, true) : null)).filter(Boolean), [0, 1.24, 0], 4);
+    piece('trailerCars', CARS.map((c, i) => (c.type.startsWith('M') ? null : plate(i, false))).filter(Boolean), [0, 1.24, 0], 4);
+  }
+
   for (const p of pieces) p.obj.position.y += 0.62;
 
   return {root, parts, pieces};

@@ -1,15 +1,26 @@
 // No.04 火車：台灣高鐵 700T。
 import * as THREE from 'three';
-import {buildTrain, SEATS, R_WHEEL, SCALE} from './model.js';
+import {buildTrain, SEATS, R_WHEEL, SCALE, CAR_X} from './model.js';
 import {PARTS, SPEC, partText} from './data.js';
 import {smooth, HP} from '../kit/app.js';
 
 export const TRAIN_ICON = '<svg viewBox="0 0 24 24"><path d="M2.5 16.5h13.2c2.8 0 5.8-1.6 5.8-3.6 0-2.4-3.6-4.4-8.5-4.4H2.5z"/><path d="M2.5 12.2h10.8"/><path d="M15 9.2l2.3 2.6"/><path d="M2.5 20h19"/></svg>';
 const ICONS = {
   run: '<svg viewBox="0 0 24 24"><path d="M2.5 15.5h12.8c2.7 0 5.7-1.5 5.7-3.4 0-2.3-3.5-4.2-8.2-4.2H2.5z"/><path d="M3 19.5h4M10 19.5h4M17 19.5h4"/></svg>',
+  power: '<svg viewBox="0 0 24 24"><path d="M13 2.5L6 13h5l-1 8.5 7-11h-5z"/></svg>',
   seats: '<svg viewBox="0 0 24 24"><path d="M7 4.5v9h8.5"/><path d="M7 13.5l-1.5 6M15.5 13.5v6"/><path d="M15 6.5a5 5 0 0 1 4.5 5.5"/><path d="M19.5 12l1.5-1.6M19.5 12l-1.9-.9"/></svg>',
 };
 const WHEEL_C = Math.PI * R_WHEEL * 2;
+// 電怎麼走：一段一段亮給你看（每段 4.5 秒）
+const POWER_DEMO = [
+  {say: ['電從天上來！4 車和 9 車的集電弓頂著電線，把 25,000 伏特的電拿進來。', 'Power comes from above! The pantographs on cars 4 and 9 press on the wire and take in 25,000 volts.'], glow: ['pantograph'], at: [CAR_X[3] + 6.5, 4.6, 0, 24, [0.45, 0.5, 0.75]]},
+  {say: ['電沿著車頂的高壓電線，送到前、中、後三組。', 'It runs along the high-voltage cable on the roof to the front, middle and back units.'], glow: ['hvCable'], at: [CAR_X[3] - 10, 3.8, 0, 55, [0.35, 0.6, 0.72]]},
+  {say: ['主變壓器把太高的電變小，3、7、10 車底下各一台。', 'The main transformers under cars 3, 7 and 10 turn it down.'], glow: ['transformer'], at: [CAR_X[2], 0.9, 0.5, 15, [0.4, 0.3, 0.86]]},
+  {say: ['主變流器把電變成馬達要的樣子，要快要慢都聽它的。', 'The traction converters shape the electricity so the motors go faster or slower.'], glow: ['converter'], at: [CAR_X[1], 0.9, 0.5, 17, [0.4, 0.3, 0.86]]},
+  {say: ['36 個馬達轉起來，推著輪子往前跑！', 'All 36 motors spin and push the wheels!'], glow: ['motors'], at: [CAR_X[1] + 8.69, 0.6, 0.5, 9, [0.35, 0.3, 0.88]]},
+  {say: ['有馬達的叫動力車，一共 9 節。', 'Cars with motors are motor cars: 9 of them.'], glow: ['motorCars'], at: [CAR_X[2] - 6, 0, 3.3, 70, [0.25, 0.85, 0.47]]},
+  {say: ['1、5、12 車沒有馬達，叫拖車，底下放輔助電源，給冷氣和電燈用電。', 'Cars 1, 5 and 12 have no motors. They are trailers, with the auxiliary power for the lights and air conditioning.'], glow: ['trailerCars', 'aux'], at: [CAR_X[0] - 1, 0.6, 2, 26, [0.4, 0.55, 0.73]]},
+];
 
 export default {
   id: 'train',
@@ -34,17 +45,19 @@ export default {
     <p class="src credit">3D：“THSR 700T / Interior (Locomotive 01)”・“Taiwan HSR700T / Interior (Cabin 02)” by Basic Hsu（CC BY 4.0）・Sketchfab</p>`;
   },
   LAYERS: [
-    {name: ['火車外面', 'Outside'], ids: ['nose', 'body', 'windows', 'pantograph']},
+    {name: ['火車外面', 'Outside'], ids: ['nose', 'body', 'windows']},
     {name: ['車廂裡面', 'Inside'], ids: ['cab', 'standard', 'business', 'accessible', 'racks', 'toilet', 'vending', 'saloon']},
-    {name: ['車底', 'Underneath'], ids: ['bogie', 'wheels', 'motors']},
+    {name: ['車底', 'Underneath'], ids: ['bogie', 'wheels']},
+    {name: ['動力', 'Power'], ids: ['motorCars', 'trailerCars', 'pantograph', 'hvCable', 'transformer', 'converter', 'motors', 'aux']},
   ],
   STACK: [
     {name: ['整列', 'Whole'], say: ['整列高鐵，組回去囉。', 'The whole train, all put back together.'], icon: TRAIN_ICON.replace(/<\/?svg[^>]*>/g, '')},
     {name: ['外面', 'Outside'], say: ['第一層，火車外面。', 'Layer one: outside the train.'], icon: '<path d="M2.5 15.5h13c2.6 0 5.5-1.4 5.5-3.3 0-2.2-3.4-4.2-8-4.2H2.5z"/>'},
     {name: ['裡面', 'Inside'], say: ['第二層，車廂裡面。', 'Layer two: inside the cars.'], icon: '<path d="M7.5 3.5v10.5h9"/><path d="M7.5 14l-1.5 6.5M16.5 14v6.5"/><path d="M7.5 9.5h5"/>'},
-    {name: ['車底', 'Under'], say: ['第三層，車底，有輪子和馬達。', 'Layer three: underneath, with wheels and motors.'], icon: '<path d="M2.5 10h19"/><circle cx="7" cy="15.5" r="3"/><circle cx="17" cy="15.5" r="3"/>'},
+    {name: ['車底', 'Under'], say: ['第三層，車底的轉向架和輪子。', 'Layer three: the bogies and wheels underneath.'], icon: '<path d="M2.5 10h19"/><circle cx="7" cy="15.5" r="3"/><circle cx="17" cy="15.5" r="3"/>'},
+    {name: ['動力', 'Power'], say: ['第四層，動力。看看哪幾節有馬達，電從哪裡進來。', 'Layer four: power. See which cars have motors and where the electricity comes in.'], icon: '<path d="M13 2.5L6 13h5l-1 8.5 7-11h-5z"/>'},
   ],
-  LABEL_ORDER: ['nose', 'cab', 'business', 'standard', 'pantograph', 'wheels', 'bogie', 'motors', 'toilet', 'accessible', 'vending', 'racks', 'windows', 'body', 'saloon'],
+  LABEL_ORDER: ['nose', 'cab', 'business', 'standard', 'pantograph', 'motorCars', 'trailerCars', 'transformer', 'converter', 'motors', 'hvCable', 'aux', 'wheels', 'bogie', 'toilet', 'accessible', 'vending', 'racks', 'windows', 'body', 'saloon'],
   XRAY_K: {nose: 1, body: 1, windows: 1, saloon: 0.6},
   sun: {pos: [4, 14, 6], ext: 14},
   ao: 0.18,
@@ -62,10 +75,12 @@ export default {
   // 跑起來的時候地上一條條往後跑（看得出速度）
   groundMarks: `m = max(m, step(mod(x, 3.0), 0.12) * step(abs(vW.z), 3.0));`,
   groundFade: ['0.6, 0.6', '8.0, 22.0'],
-  cam: {frameLen: 6, min: 1.2, max: 70, home: [0.62, 0.26, 0.75], explode: [0.5, 0.9, 0.8], r: [1.0, 1.6], rh: [2.6, 1.0], target: (ex) => [-1.9, 0.42 + 1.0 * ex, 0]},
+  // 動力那一層（和它的零件）框一整組動力單元（1–4 車，約 100 公尺）
+  cam: {frameLen: {default: 6, 4: 18, motorCars: 18, trailerCars: 18, pantograph: 18, hvCable: 18, transformer: 18, converter: 18, motors: 18, aux: 18}, min: 1.2, max: 70, home: [0.62, 0.26, 0.75], explode: [0.5, 0.9, 0.8], r: [1.0, 1.6], rh: [2.6, 1.0], target: (ex) => [-1.9, 0.42 + 1.0 * ex, 0]},
   actions: [
     {id: 'run', icon: ICONS.run, label: ['出發', 'Go']},
     {id: 'seats', icon: ICONS.seats, label: ['轉椅子', 'Turn seats']},
+    {id: 'power', icon: ICONS.power, label: ['電怎麼走', 'Power flow']},
   ],
   panel: [
     {id: 'dSpeed', label: ['公里／小時', 'km/h']},
@@ -76,7 +91,7 @@ export default {
 
   setup(ctx) {
     const {model, $, sound, sayPair, setBtn, later} = ctx;
-    const V = {running: false, speed: 0, dist: 0, turned: false, turnP: 0, shown: 0};
+    const V = {running: false, speed: 0, dist: 0, turned: false, turnP: 0, shown: 0, powerT: -1, powerPh: -1};
     // 轉椅子：每個位子在原地轉半圈（真的高鐵椅子可以轉，永遠面向火車前進的方向）
     const seatMeshes = [];
     for (const id of ['standard', 'business', 'accessible']) for (const m of model.parts[id]?.meshes || []) if (m.isInstancedMesh) seatMeshes.push({m, list: id === 'standard' ? SEATS.std : id === 'business' ? SEATS.biz : SEATS.wheel});
@@ -106,6 +121,20 @@ export default {
           sayPair('出發囉！高鐵越跑越快，最快每小時 300 公里。', 'Here we go! The train speeds up, up to 300 km an hour.');
         } else sayPair('準備進站，慢慢停下來。', 'Coming into the station, slowing down.');
       },
+      power: () => {
+        if (V.powerT >= 0) {
+          V.powerT = -1;
+          ctx.S.glow = null;
+          ctx.S.glowT = 0;
+          setBtn('power', false);
+          return;
+        }
+        if (ctx.S.layer !== 4) ctx.setLayer(4);
+        V.powerT = 0;
+        V.powerWait = 0.5; // 換層時鏡頭 0.12 秒後會重新框一次，等它框完再飛到第一段
+        V.powerPh = -1;
+        setBtn('power', true);
+      },
       seats: () => {
         V.turned = !V.turned;
         setBtn('seats', V.turned, V.turned ? ['轉回來', 'Turn back'] : ['轉椅子', 'Turn seats']);
@@ -117,6 +146,24 @@ export default {
     return {
       handlers,
       update(dt) {
+        if (V.powerT >= 0 && V.powerWait > 0) V.powerWait -= dt;
+        else if (V.powerT >= 0) {
+          V.powerT += dt;
+          const ph = Math.floor(V.powerT / 4.5);
+          if (ph >= POWER_DEMO.length) {
+            V.powerT = -1;
+            ctx.S.glow = null;
+            setBtn('power', false);
+          } else if (ph !== V.powerPh) {
+            V.powerPh = ph;
+            sayPair(...POWER_DEMO[ph].say);
+            ctx.S.glow = POWER_DEMO[ph].glow;
+            ctx.S.glowT = 4.4;
+            // 鏡頭飛到這一段要看的那台機器（公尺 → 畫面上的大小；整列抬高 0.62 m 放在道床上）
+            const [x, y, z, d, dir] = POWER_DEMO[ph].at;
+            ctx.look([x * SCALE, (y + 0.62) * SCALE, z * SCALE], d * SCALE, dir);
+          }
+        }
         // 加速：0 到 300 公里大約 40 秒（這裡快轉）
         const want = V.running ? SPEC.speed : 0;
         const k = V.running ? 0.35 : 0.6;
