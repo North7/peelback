@@ -131,6 +131,34 @@ function skGeo(g) {
   geo.computeBoundingSphere();
   return clean(geo);
 }
+/** 側窗的法線：左右兩邊（z 的正負）各自統一成那一邊玻璃面的平均方向；裡面那一面的法線照原本朝裡 */
+function flatSideGlass(geo) {
+  const pos = geo.attributes.position, nor = geo.attributes.normal, idx = geo.index;
+  const sum = {[-1]: new THREE.Vector3(), [1]: new THREE.Vector3()};
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
+  for (let t = 0; t < idx.count; t += 3) {
+    a.fromBufferAttribute(pos, idx.getX(t));
+    b.fromBufferAttribute(pos, idx.getX(t + 1));
+    c.fromBufferAttribute(pos, idx.getX(t + 2));
+    n.subVectors(c, b).cross(a.clone().sub(b));
+    const side = a.z + b.z + c.z < 0 ? -1 : 1;
+    if (n.z * side < 0) n.negate(); // 一律朝外再加（裡外兩面才不會互相抵消）
+    sum[side].add(n);
+  }
+  for (const k of [-1, 1]) if (sum[k].lengthSq() > 0) sum[k].normalize();
+  const out = new Float32Array(pos.count * 3);
+  const o = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    const side = pos.getZ(i) < 0 ? -1 : 1;
+    o.fromBufferAttribute(nor, i);
+    const f = sum[side];
+    const sg = o.dot(f) < 0 ? -1 : 1;
+    out[i * 3] = f.x * sg;
+    out[i * 3 + 1] = f.y * sg;
+    out[i * 3 + 2] = f.z * sg;
+  }
+  geo.setAttribute('normal', new THREE.BufferAttribute(out, 3));
+}
 /** 底盤、電池、馬達（另外下載的模型）：位置 float32、索引，法線現算 */
 function innerGeo(g) {
   const buf = IN_BIN.buffer;
@@ -416,6 +444,9 @@ export function buildCar() {
     if (!matCache.has(key)) matCache.set(key, skMaterial(g.mat, g.part, g.tag));
     const m = matCache.get(key);
     const o = mesh(skGeo(g), m);
+    // 側窗（車門玻璃、車身兩側的小窗）：模型的點很少、法線又存得很粗，玻璃像鏡子一樣把誤差放大，倒影變成波浪。
+    // 實車的側窗幾乎是平的：每一側的法線統一成那一側玻璃的平均方向。擋風玻璃、後窗本來就是彎的，不動
+    if (g.mat === 'glass_base' && !['windshield', 'liftgate'].includes(g.part)) flatSideGlass(o.geometry);
     if (g.tag === 'turn') o.userData.turnEnd = true;
     if (m.transparent) o.castShadow = false;
     if (g.part === 'wheels') (wheelMesh[g.tag] ||= []).push(o);
