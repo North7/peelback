@@ -2,7 +2,7 @@
 // 一部自動播放的片，同一個 3D 場景、同一台攝影機、鏡頭之間不剪接（往下滑、點進度條也可以自己跳）：
 //   1 一團失焦的點聚成 Model Y，一道光從車頭掃到車尾，掃過的地方變成實體（首屏）
 //   2 Model Y 照網站的拆法一層一層拆開 → 3 看座椅 → 4 繞到車底看電池
-//   5 零件合回整台，115 公分的小朋友出現，公車由粒子聚成 → 6 飛機、高鐵也由粒子聚成，四台照真實比例排在一起
+//   5 零件合回整台，115 公分的小朋友出現，公車由粒子聚成 → 6 飛機、高鐵也由粒子聚成，四種交通工具照真實比例排在一起
 //   7 天黑了，四台的燈一盞一盞亮起來（燈和閃的節奏都是網站裡同一組），停在「進展廳」
 // 鏡頭的節奏有快有慢：換鏡頭時加速推過去、到位後只剩很慢的推近。景深很輕：大部分畫面是實的。
 // 顏色、日夜、語言、按鈕都和網站同一套：深色模式就是晚上的場景；片子自己天黑時按日夜鍵會整個換成白天。
@@ -53,7 +53,7 @@ const SHOTS = [
     chap: [['照真的大小做', 'Built to real size'], ['旁邊站一個 115 公分的小朋友。公車 12.2 公尺，差不多 11 個小朋友躺成一排。', 'Next to a 115 cm kid. The bus is 12.2 m, about 11 kids lying in a row.']]},
   // 不框整列高鐵：前景車子和小朋友，高鐵前幾節清楚、後面交給景深糊掉
   {dur: 6, tr: 1.8, at: [-17, 3.6, 14.5], d: 62, atP: [-13, 4, 15.5], dP: 104, az: 0.92, el: 0.22,
-    chap: [['四台車，四種大小', 'Four vehicles, four sizes'], ['最長的高鐵 304 公尺，12 節車廂一節一節都拆得開。', 'The high-speed train is 304 m long, and all 12 cars come apart.']]},
+    chap: [['四種交通工具，大小差很多', 'Four ways to travel, very different sizes'], ['最長的高鐵 304 公尺，12 節車廂一節一節都拆得開。', 'The high-speed train is 304 m long, and all 12 cars come apart.']]},
   {dur: Infinity, tr: 2.4, at: [-19, 4, 15.5], d: 66, atP: [-17, 5, 20.5], dP: 122, az: 1.0, el: 0.19, night: true,
     chap: [['天黑了，燈亮起來', 'Lights on after dark'], ['車頭燈、尾燈、高鐵整排的窗、飛機翅膀上一閃一閃的燈，每一組都可以自己打開。', 'Headlights, tail lights, the train’s rows of windows, the blinking lights on the wings: you can switch each set on yourself.']], cta: true},
 ];
