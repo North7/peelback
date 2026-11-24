@@ -3,11 +3,12 @@
 // 引擎缸徑衝程為日野 J08E 公開規格。車高頁面寫 1,730 mm 明顯有誤，這裡用 3.15 m 的估計值並標明。
 
 export const SPEC = {
-  length: 12.2, // m（弘鉅公開規格 12200 × 2500 × 3280）
+  length: 12.2, // m（弘鉅公開規格 12200 × 2500 × 3280，含前面的兔耳後照鏡）
+  bodyLength: 11.815, // 車身本體：前懸 2.57 + 軸距 5.875 + 後懸 3.37
   width: 2.5,
   height: 3.28, // 含車頂冷氣機
   wheelbase: 5.875,
-  frontOverhang: 2.955, // 車長 − 軸距 − 後懸 3370
+  frontOverhang: 2.57, // 和泰 HS8JRVL 底盤規格
   tireD: 0.9565, // 275/70R22.5：571.5 mm 鋼圈 + 2 × 192.5 mm 胎壁
   bore: 0.112,
   stroke: 0.13,
@@ -95,13 +96,13 @@ export const PARTS = {
     fact: '輪子轉一圈，公車往前走 3 公尺。'},
   springs: {name: '空氣彈簧', en: 'air springs',
     say: '公車不是用鐵彈簧，是用充滿空氣的氣囊，坐起來比較不會晃。停車時放掉一點氣，公車就會往右邊蹲下來。',
-    fact: '前面 4 個、後面 4 個，一共 8 個。'},
+    fact: '前面 2 個、後面 4 個，一共 6 個。'},
   engine: {variant: 'diesel', name: '引擎', en: 'engine',
     say: '引擎是公車的心臟。它把柴油燒成力氣，推著 6 個活塞上上下下。',
     fact: '6 個汽缸加起來 7.7 公升，差不多 4 大瓶寶特瓶。'},
   gearbox: {variant: 'diesel', name: '變速箱', en: 'gearbox',
     say: '變速箱像腳踏車的變速，有 6 個檔。起步用小檔，跑快了換大檔。',
-    fact: '這台是自動排檔，司機不用自己換。'},
+    fact: '這台用的是 ZF 的自動變速箱，司機不用自己換檔。'},
   shaft: {name: '傳動軸', en: 'drive shaft',
     ev: {say: '傳動軸是一根會轉的鐵棒，把馬達的力氣送到後面的輪子。', fact: '按「開車」，看看它轉得多快。'},
     say: '傳動軸是一根會轉的鐵棒，把引擎的力氣送到後面的輪子。',
@@ -109,7 +110,7 @@ export const PARTS = {
   radiator: {name: '散熱器', en: 'radiator',
     ev: {say: '電池和馬達工作的時候也會變熱，散熱器一樣要用水和風扇幫它們降溫。', fact: '柴油公車和電動公車都有散熱器。'},
     say: '引擎工作的時候會變得很燙。散熱器用水和風扇幫它降溫，就像我們流汗一樣。',
-    fact: '車身左後方那一格黑色的網子，就是讓風吹進來的地方。'},
+    fact: '車身右後方上面那一格直條的百葉，就是讓熱風吹出去的地方。'},
   tank: {variant: 'diesel', name: '油箱', en: 'fuel tank',
     say: '油箱裡裝的是柴油，是引擎的食物。',
     fact: '公車的引擎吃柴油，不是汽油。'},
@@ -176,11 +177,11 @@ const EN = {
   frontAxle: ['The front axle holds the two front wheels. When the driver steers, they turn left and right.', 'It dips down in the middle so the floor can be really low.'],
   rearAxle: ['The rear axle pushes the bus forward. The round gearbox in the middle lets the left and right wheels turn at different speeds in a corner.', 'The back wheels do the pushing; the front wheels do the steering.'],
   wheels: ['The bus has 6 tires: 2 in front, and 2 side by side on each side at the back, because the back is the heaviest.', 'One turn of a wheel moves the bus 3 meters.'],
-  springs: ['Instead of metal springs, the bus rides on air bags, so it bounces less. Let out some air and the bus kneels down to the right.', '4 in front and 4 at the back: 8 in all.'],
+  springs: ['Instead of metal springs, the bus rides on air bags, so it bounces less. Let out some air and the bus kneels down to the right.', '2 in front and 4 at the back: 6 in all.'],
   engine: ['The engine is the heart of the bus. It burns diesel to make power and pushes 6 pistons up and down.', 'Its 6 cylinders hold 7.7 liters together, about 4 big soda bottles.'],
-  gearbox: ['The gearbox works like the gears on a bike. It has 6 gears: a low gear to start, then higher gears as the bus goes faster.', 'It’s automatic, so the driver doesn’t have to change gears.'],
+  gearbox: ['The gearbox works like the gears on a bike. It has 6 gears: a low gear to start, then higher gears as the bus goes faster.', 'It’s a ZF automatic, so the driver doesn’t have to change gears.'],
   shaft: ['The drive shaft is a spinning steel rod that carries the engine’s power to the back wheels.', 'Press Drive and watch how fast it spins.'],
-  radiator: ['The engine gets very hot. The radiator cools it down with water and a fan, a bit like how we sweat.', 'The black grille at the back on the left is where the air comes in.'],
+  radiator: ['The engine gets very hot. The radiator cools it down with water and a fan, a bit like how we sweat.', 'The louvered grille high up at the back on the right is where the hot air blows out.'],
   tank: ['The fuel tank holds diesel, the engine’s food.', 'This engine eats diesel, not gasoline.'],
   battery: ['The batteries store electricity to start the engine and to light up the lamps and the route sign.', 'Two 12-volt batteries together make 24 volts.'],
   exhaust: ['The engine’s used-up gas goes through a muffler to get quieter, then out of the exhaust pipe.', 'That’s why it smells behind a bus. Stand back a little.'],

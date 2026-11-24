@@ -47,7 +47,7 @@ export default {
     <p class="src">${HP(
       ev
         ? ['電動版的電池、馬達、控制器位置，照一般低地板電動公車的配置簡化，不是特定車型。電動公車數量取自臺北市政府主計處統計。', 'The electric version’s batteries, motor and controller are placed like a typical low-floor electric bus, not one exact model. Bus counts are from Taipei City Government statistics.']
-        : ['日野 HS8JRVL-UTF（弘鉅車體）。尺寸取自弘鉅汽車公開的規格（12.2 × 2.5 × 3.28 公尺、軸距 5.875 公尺），外型照臺北客運的實車照片做，引擎取自維基學院「臺北客運」車種表；座位照實車排成 24 個，底盤和引擎的位置照一般後置引擎低地板公車簡化。', 'Hino HS8JRVL-UTF with a Hongju body. Size is from the bodybuilder’s published specs (12.2 × 2.5 × 3.28 m, 5.875 m wheelbase), the look follows photos of real Taipei Bus buses, and the engine is from the Taipei Bus fleet list on Wikiversity. The 24 seats follow the real bus; the chassis and engine are placed like a typical rear-engine low-floor bus.'],
+        : ['日野 HS8JRVL-UTF（弘鉅車體）。軸距、後懸、車寬取自弘鉅汽車公開的規格（12.2 公尺含前面的後照鏡），前懸、引擎、ZF 自動變速箱、前 2 後 4 個氣囊取自和泰汽車的底盤規格；車門、車窗、冷氣機的位置和車內座位照臺北客運的實車照片和車內影片。後段有幾排、要上幾階、引擎和油箱的確切位置沒有找到照片，是照座位數 24 和同款車推的。', 'Hino HS8JRVL-UTF with a Hongju body. Wheelbase, rear overhang and width are from the bodybuilder’s specs (12.2 m including the front mirrors); front overhang, engine, the ZF automatic gearbox and the 2 front / 4 rear air bags are from Hotai’s chassis specs. Doors, windows, the roof air conditioner and the seats follow photos and onboard videos of real Taipei Bus buses. The number of rear rows, the steps, and the exact engine and fuel tank positions weren’t visible in any photo, so they are worked out from the 24-seat count and similar buses.'],
     )}</p>`;
   },
   LAYERS: [

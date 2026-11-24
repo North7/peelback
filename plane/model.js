@@ -200,6 +200,11 @@ const thetaAtY = (t, y, side) => {
   const a = Math.acos(c);
   return side > 0 ? a : Math.PI * 2 - a;
 };
+/** 機身在離機頭 t、高度 y 那一圈的半寬（機頭、機尾變窄的地方，裡面的東西要縮進來） */
+const halfWidth = (t, y) => {
+  const k = (y - CY - fDy(t)) / fRy(t);
+  return fRz(t) * Math.sqrt(Math.max(0, 1 - k * k));
+};
 const SEAM_N = 5.9; // 1 號門（中心 6.82 m）整片都在機身上，不跨接口
 const SEAM_T = 66;
 const smooth01 = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
@@ -1072,9 +1077,32 @@ export function buildPlane() {
   // ================= 第二層：客艙 =================
   {
     // 客艙地板
-    const fl = mesh(span([xAt(66), FLOOR_Y - 0.08, -2.82], [xAt(6.4), FLOOR_Y, 2.82], 0.03), mat.plastic('#45434a', 0.9));
+    // 地板：從 1 號門前（5.0 m）到後廚房後面（62.6 m），兩邊照機身弧度收（機頭、機尾比較窄）
+    const flG = (() => {
+      const pos = [];
+      const idx = [];
+      const ts = [];
+      for (let t = 5.0; t <= 62.6 + 1e-6; t += 0.4) ts.push(t);
+      ts.forEach((t, i) => {
+        const w = Math.min(2.82, halfWidth(t, FLOOR_Y - 0.08) - 0.04);
+        pos.push(xAt(t), FLOOR_Y, -w, xAt(t), FLOOR_Y, w, xAt(t), FLOOR_Y - 0.08, -w, xAt(t), FLOOR_Y - 0.08, w);
+        if (i) {
+          const a = (i - 1) * 4;
+          const b = i * 4;
+          idx.push(a, b, a + 1, a + 1, b, b + 1, a + 2, a + 3, b + 2, a + 3, b + 3, b + 2);
+        }
+      });
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setIndex(idx);
+      g.computeVertexNormals();
+      return g;
+    })();
+    const flM = mat.plastic('#45434a', 0.9);
+    flM.side = THREE.DoubleSide;
+    const fl = mesh(flG, flM);
     const aisle = [];
-    for (const z of [-0.95, 0.95]) aisle.push(span([xAt(63.5), FLOOR_Y, z - 0.25], [xAt(9), FLOOR_Y + 0.005, z + 0.25], 0.002));
+    for (const z of [-0.95, 0.95]) aisle.push(span([xAt(60.3), FLOOR_Y, z - 0.25], [xAt(8.4), FLOOR_Y + 0.005, z + 0.25], 0.002)); // 兩條走道：頭等艙到後廚房
     const cl = [14, 30, 46, 60].map((t) => {
       const l = new THREE.PointLight('#ffe9c8', 1.1, 3.2, 1.6);
       l.position.set(xAt(t), FLOOR_Y + 2.0, 0);
@@ -1153,7 +1181,7 @@ export function buildPlane() {
     for (const t of [43.69, 44.47, 45.25]) row(t, [...L3, ...C3, ...R3]);
     for (let r = 0; r < 15; r++) {
       const t = 46.05 + r * 0.8;
-      const k = t > 55.6 ? 0.1 : 0;
+      const k = t > 56.8 ? 0.2 : t > 55.6 ? 0.1 : 0;
       row(t, [...L3.map((z) => z + k), ...C3, ...R3.map((z) => z - k)]);
     }
     row(58.08, C3);
@@ -1213,7 +1241,13 @@ export function buildPlane() {
     const tMat = mat.metal();
     // [前, 後, 左 z, 右 z]：照座位圖量的（離機頭幾公尺）
     const GALLEYS = [[5.0, 5.98, 0.4, 2.5], [7.06, 7.92, -0.9, 0.9], [21.62, 23.26, -0.9, 0.9], [24.32, 25.18, -0.9, 0.9], [57.93, 58.79, -2.4, -0.9], [57.93, 58.79, 0.9, 2.4], [58.73, 59.61, -0.9, 0.9], [60.4, 62.4, -1.1, 1.1]];
-    for (const [t0, t1, z0, z1] of GALLEYS) {
+    /** 照機身的弧度縮進來：取這一段最窄的地方（前後兩端、頂上），留 10 公分 */
+    const fit = (t0, t1, z0, z1, h) => {
+      const w = Math.min(...[t0, t1].flatMap((t) => [halfWidth(t, FLOOR_Y + h), halfWidth(t, FLOOR_Y + 0.05)])) - 0.1;
+      return [Math.max(z0, -w), Math.min(z1, w)];
+    };
+    for (const [t0, t1, z0r, z1r] of GALLEYS) {
+      const [z0, z1] = fit(t0, t1, z0r, z1r, 2.0);
       const box = span([xAt(t1), FLOOR_Y, z0], [xAt(t0), FLOOR_Y + 2.0, z1], 0.05);
       const trim = [];
       for (let k = 0; k < 4; k++) for (const x of [xAt(t1) - 0.012, xAt(t0) + 0.012]) trim.push(span([x - 0.01, FLOOR_Y + 0.25 + k * 0.42, z0 + 0.1], [x + 0.01, FLOOR_Y + 0.29 + k * 0.42, z1 - 0.1], 0.004));
@@ -1228,12 +1262,18 @@ export function buildPlane() {
       [[60.38, 61.79, -2.0, -1.15], [60.38, 61.79, 1.15, 2.0]],
     ];
     for (const group of LAVS) {
-      const l = group.map(([t0, t1, z0, z1]) => span([xAt(t1), FLOOR_Y, z0 + 0.02], [xAt(t0), FLOOR_Y + 2.0, z1 - 0.02], 0.06));
+      const l = group.map(([t0, t1, z0r, z1r]) => {
+        const [z0, z1] = fit(t0, t1, z0r, z1r, 2.0);
+        return span([xAt(t1), FLOOR_Y, z0 + 0.02], [xAt(t0), FLOOR_Y + 2.0, z1 - 0.02], 0.06);
+      });
       piece('lav', [mesh(merge(l), lMat)], [0, 10, 0], 2);
     }
     // 衣櫃、隔板（1 號門後左右、2 號門後左、豪華經濟艙後面左右）
     const cl = [[7.71, 8.31, -2.4, -1.3], [7.71, 8.31, 1.3, 2.4], [24.17, 25.28, -2.4, -1.1], [30.97, 31.46, -2.4, -1.3], [30.97, 31.46, 1.3, 2.4], [41.82, 42.04, -0.95, 0.95]];
-    piece('galley', [mesh(merge(cl.map(([t0, t1, z0, z1]) => span([xAt(t1), FLOOR_Y, z0], [xAt(t0), FLOOR_Y + 1.9, z1], 0.04))), gMat)], [0, 10, 0], 2);
+    piece('galley', [mesh(merge(cl.map(([t0, t1, z0r, z1r]) => {
+      const [z0, z1] = fit(t0, t1, z0r, z1r, 1.9);
+      return span([xAt(t1), FLOOR_Y, z0], [xAt(t0), FLOOR_Y + 1.9, z1], 0.04);
+    })), gMat)], [0, 10, 0], 2);
     // 行李櫃：兩邊和中間
     const bMat = mat.plastic('#ece9e2', 0.45);
     for (const [t0, t1] of [[8.4, 21.5], [25.6, 40.2], [42.3, 57.6]]) {
@@ -1263,11 +1303,11 @@ export function buildPlane() {
     const cMat = mat.plastic('#b9bec4', 0.45);
     let n = 0;
     // 貨艙（ACAP FIGURE 2-6-0）：前貨艙約 7.9–27.9 m 放 24 個 LD3（12 排）、後貨艙約 39.6–55.7 m 放 20 個（10 排）
-    for (const [t0, rows] of [[8.8, 12], [40.4, 10]]) {
+    for (const [t0, rows] of [[8.8, 12], [39.0, 10]]) {
       const im = new THREE.InstancedMesh(pair, cMat, rows);
       const M = new THREE.Matrix4();
       for (let r = 0; r < rows; r++) {
-        M.makeTranslation(xAt(t0 + r * 1.6), CARGO_Y, 0);
+        M.makeTranslation(xAt(t0 + r * (t0 > 30 ? 1.56 : 1.6)), CARGO_Y, 0);
         im.setMatrixAt(r, M);
       }
       im.castShadow = im.receiveShadow = true;
