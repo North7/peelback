@@ -1,5 +1,5 @@
 // No.01 公車：台北客運日野低地板公車，可以切換柴油／電動。
-import {buildBus, pistonPin, ENGINE, R_TIRE, RAMP_Z0, RAMP_Z1, LEVELS} from './model.js';
+import {buildBus, pistonPin, ENGINE, R_TIRE, RAMP_Z0, RAMP_Z1, LEVELS, preload} from './model.js';
 import {PARTS, SPEC, displacementL, tireCirc, partText, hasPart, DIFFS} from './data.js';
 import {smooth, L, Lp, H, HP} from '../kit/app.js';
 
@@ -26,6 +26,7 @@ export default {
   variants: [{id: 'diesel'}, {id: 'ev'}],
   present: (id, v) => hasPart(id, v),
   build: buildBus,
+  preload, // 點進來時先下載這台的 3D 資料
   subtitle: (S) => (S.variant === 'ev' ? ['台北客運・電動低地板公車', 'Taipei Bus · electric low-floor bus'] : ['台北客運・日野低地板公車', 'Taipei Bus · Hino low-floor bus']),
   facts(S) {
     const kids = (SPEC.length / SPEC.kid).toFixed(1);

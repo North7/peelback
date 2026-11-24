@@ -1,5 +1,5 @@
 // No.03 汽車：特斯拉 Model Y 新版（2025）。
-import {buildCar, R_TIRE, SCALE} from './model.js';
+import {buildCar, R_TIRE, SCALE, preload} from './model.js';
 import {PARTS, SPEC, partText, tireCirc} from './data.js';
 import {smooth, HP} from '../kit/app.js';
 
@@ -16,6 +16,7 @@ export default {
   PARTS,
   partText,
   build: buildCar,
+  preload, // 點進來時先下載這台的 3D 資料
   subtitle: () => ['特斯拉・Model Y', 'Tesla · Model Y'],
   facts() {
     const row = (dt, dd, small) => `<div><dt>${HP(dt)}</dt><dd>${dd}${small ? `<small>${HP(small)}</small>` : ''}</dd></div>`;

@@ -9,7 +9,7 @@ const views = {bus: [-0.62, 0.3, 0.72], plane: [-0.55, 0.42, 0.72], car: [0.65, 
 for (const v of (process.env.ONLY || 'bus,plane,car').split(',')) {
   const p = await b.newPage({viewport: {width: 1600, height: 1000}});
   await p.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
-  await p.goto('file://' + path.join(ROOT, 'dist/peelback.html') + '#' + v);
+  await p.goto('file://' + path.join(ROOT, 'dist/peelback.inline.html') + '#' + v);
   await p.waitForTimeout(5000);
   await p.evaluate(({bg, theme, pos, v}) => {
     document.querySelectorAll('.top,.bar,.stack,.hint,.card,#labels,.tools,.title').forEach((e) => (e.style.display = 'none'));

@@ -5,7 +5,6 @@
 // 2026-11-24 起：機翼、尾翼、舵面、引擎（Trent XWB）、起落架換成 Sketchfab 下載的精細模型（tools/plane_export.py → plane/sk/），
 // 機身還是程式畫，但每一站的寬高照下載的 A350-1000 外殼量（plane_meas.json），塗裝、窗戶燈、拆開的方式都不變。
 import * as THREE from 'three';
-import {unzlibSync} from 'three/addons/libs/fflate.module.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import SK_ZIP from './sk/plane.bin';
@@ -29,7 +28,12 @@ export const R_NOSE = 0.53;
 const ENG = {x: NOSE_X - 25.78 - (5.23 - 3.19) * 0.761, y: 0.76 + (4.145 - 1.49) * 0.761, z: 10.5}; // 風扇中心（唇緣離機頭 25.78 m、短艙離地 0.76 m）
 
 // ---------- 下載的模型 ----------
-const SK_BIN = unzlibSync(SK_ZIP);
+import {loadBin} from '../kit/load.js';
+// 3D 資料：點進飛機時才下載、解壓（preload 做完才 build）
+let SK_BIN = null;
+export async function preload() {
+  SK_BIN = await loadBin(SK_ZIP);
+}
 function skGeo(g) {
   const q = new Uint16Array(SK_BIN.buffer, SK_BIN.byteOffset + g.pos, g.nv * 3);
   const pos = new Float32Array(g.nv * 3);

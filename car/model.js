@@ -3,15 +3,19 @@
 // 外殼、輪子用 Sketchfab 上 BloxBloger 做的「2025 Tesla Model Y」（CC BY-NC 4.0，非商業、要寫作者），
 // 在 Blender 照位置拆成零件、換成這裡的座標（tools/sk_export.py → car/sk/）。車子裡面和底盤、電池是簡化的示意。
 import * as THREE from 'three';
-import {unzlibSync} from 'three/addons/libs/fflate.module.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import SK_ZIP from './sk/model.bin';
 import SK_META from './sk/model.json';
 import IN_ZIP from './sk/inner.bin';
 // 模型檔是 zlib 壓縮過的，位置存成 0–65535 的整數（每組記最小值和間距）
-const SK_BIN = unzlibSync(SK_ZIP);
-const IN_BIN = unzlibSync(IN_ZIP);
+import {loadBin} from '../kit/load.js';
+// 3D 資料：點進汽車時才下載、解壓（preload 做完才 build）
+let SK_BIN = null;
+let IN_BIN = null;
+export async function preload() {
+  [SK_BIN, IN_BIN] = await Promise.all([loadBin(SK_ZIP), loadBin(IN_ZIP)]);
+}
 function dequant(buf, off, g) {
   const q = new Uint16Array(buf, off, g.nv * 3);
   const out = new Float32Array(g.nv * 3);

@@ -72,7 +72,16 @@ export function startApp(V, opts = {}) {
   const ac = new AbortController();
   const sig = {signal: ac.signal};
   let alive = true;
-  const later = (fn, ms) => setTimeout(() => alive && fn(), ms);
+  // 延後做的事：離開這台車時全部取消（不然還沒觸發的計時器會抓著整個舊場景好幾秒）
+  const timers = new Set();
+  const later = (fn, ms) => {
+    const id = setTimeout(() => {
+      timers.delete(id);
+      if (alive) fn();
+    }, ms);
+    timers.add(id);
+    return id;
+  };
   const app = document.getElementById('app');
   const $ = (s) => app.querySelector(s);
   const S = {
@@ -1017,12 +1026,13 @@ ${
     view.want = null; // 使用者一碰，就停掉正在飛的鏡頭，不跟手指搶
     $('#hint').classList.add('gone');
   }
+  // 畫布上的監聽一定要掛 sig：three.js 共用的貼圖會一直連著舊的繪圖環境和畫布，畫布上的監聽沒移掉，整個舊場景就放不掉（每進出一台車多 20 MB 上下）
   canvas.addEventListener('pointerdown', (e) => {
     down = {x: e.clientX, y: e.clientY, t: performance.now()};
     markInput();
     sound.unlock();
-  });
-  canvas.addEventListener('wheel', markInput, {passive: true});
+  }, sig);
+  canvas.addEventListener('wheel', markInput, {passive: true, ...sig});
   canvas.addEventListener('pointerup', (e) => {
     if (!down) return;
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
@@ -1046,7 +1056,7 @@ ${
       ext.onPick?.(id);
       select(id === S.selected ? null : id);
     } else select(null);
-  });
+  }, sig);
 
   // ---------- 動畫 ----------
   const tmpBox = new THREE.Box3();
@@ -1311,6 +1321,9 @@ ${
       if (window.__BUS?.bus === model) delete window.__BUS; // 回到展廳後不要再抓著上一台的模型
       alive = false;
       cancelAnimationFrame(raf);
+      for (const id of timers) clearTimeout(id);
+      timers.clear();
+      for (const it of STACK) delete it.el; // 層數按鈕存在車子的定義上：拿掉，舊的場景才放得掉
       ac.abort();
       themeObs.disconnect();
       controls.dispose();

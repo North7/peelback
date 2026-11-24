@@ -1,6 +1,6 @@
 // No.02 飛機：星宇航空 A350-1000「空山金」。
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {buildPlane, SCALE} from './model.js';
+import {buildPlane, SCALE, preload} from './model.js';
 import {PARTS, SPEC, partText} from './data.js';
 import {smooth, approach, HP} from '../kit/app.js';
 
@@ -23,6 +23,7 @@ export default {
   PARTS,
   partText,
   build: buildPlane,
+  preload, // 點進來時先下載這台的 3D 資料
   subtitle: () => ['星宇航空・A350-1000 空山金', 'STARLUX · A350-1000 Airsorayama Gold'],
   facts() {
     const row = (dt, dd, small) => `<div><dt>${HP(dt)}</dt><dd>${dd}${small ? `<small>${HP(small)}</small>` : ''}</dd></div>`;

@@ -5,7 +5,6 @@
 // 座位不用模型裡的：照高鐵官網的座位圖一節一節排（977 個），標準車廂青綠色、商務車廂紫色。
 // 集電弓、特高壓電線、主變壓器、主變流器、輔助電源、馬達、車頭燈、鐵軌是這裡畫的示意（位置照編組推，見第四層的說明）。
 import * as THREE from 'three';
-import {unzlibSync} from 'three/addons/libs/fflate.module.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import SK_ZIP from './sk/train.bin';
@@ -20,7 +19,12 @@ import T_MARK from './sk/tex/Marker_blinn.jpg';
 import T_CARNO from './sk/tex/Car_No.jpg';
 import {CARS} from './data.js';
 
-const SK_BIN = unzlibSync(SK_ZIP);
+import {loadBin} from '../kit/load.js';
+// 3D 資料：點進高鐵時才下載、解壓（preload 做完才 build）
+let SK_BIN = null;
+export async function preload() {
+  SK_BIN = await loadBin(SK_ZIP);
+}
 const TEX_URL = {THSR_Color_blinn: T_LIVERY, Ctrl_Panel_blinn: T_PANEL, Auto_Sale_blinn: T_VEND, Color_Ground_blinn: T_FLOOR, Color_Gray_Inside: T_INSIDE, Color_Door_Gray: T_DOOR, Marker_blinn: T_MARK, Car_No: T_CARNO};
 
 export const SCALE = 1 / 6;

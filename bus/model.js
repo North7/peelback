@@ -6,11 +6,15 @@ import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {SPEC} from './data.js';
-import {unzlibSync} from 'three/addons/libs/fflate.module.js';
 import SK_ZIP from './sk/bus.bin';
 import SK_META from './sk/bus.json';
 // 外殼、車頭車尾、後照鏡、車門：tools/bus_build.py 在 Blender 照實車照片建的（弘鉅車體 HINO HS8JRVL-UTF）
-const SK_BIN = unzlibSync(SK_ZIP);
+import {loadBin} from '../kit/load.js';
+// 3D 資料：點進公車時才下載、解壓（preload 做完才 build）
+let SK_BIN = null;
+export async function preload() {
+  SK_BIN = await loadBin(SK_ZIP);
+}
 function skGeo(g) {
   const q = new Uint16Array(SK_BIN.buffer, SK_BIN.byteOffset + g.pos, g.nv * 3);
   const pos = new Float32Array(g.nv * 3);

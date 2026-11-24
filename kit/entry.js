@@ -2,7 +2,7 @@
 // 要加新的一台：在 CATALOG 加一筆、在 VEHICLES 放它的定義；新的分類加在 CATS。
 import {startApp} from './app.js';
 import {startHome} from './home.js';
-import {applyLang} from './i18n.js';
+import {applyLang, getLang} from './i18n.js';
 import {applyThemeAttr} from './ui.js';
 import bus, {BUS_ICON} from '../bus/vehicle.js';
 import plane, {PLANE_ICON} from '../plane/vehicle.js';
@@ -38,18 +38,35 @@ applyThemeAttr();
 let current = null;
 let currentId = null;
 let lastId = null;
-function route() {
+let routeN = 0;
+async function route() {
   const id = location.hash.slice(1);
   const want = VEHICLES[id] ? id : 'home';
   if (want === currentId) return;
+  const n = ++routeN;
   current?.dispose();
+  current = null;
   currentId = want;
   if (want === 'home') {
     current = startHome({cats: SHOWN_CATS, items: CATALOG, lastId, onOpen: (v) => (location.hash = v)});
   } else {
     lastId = want;
     const item = CATALOG.find((x) => x.id === want);
-    current = startApp(VEHICLES[want], {no: item?.no, onHome: () => (location.hash = '')});
+    const V = VEHICLES[want];
+    // 這台的 3D 資料點進來才下載：下載的時候先轉載入的輪子
+    if (V.preload) {
+      const app = document.getElementById('app');
+      app.innerHTML = '<div class="loading"><div class="wheel"></div></div>';
+      try {
+        await V.preload();
+      } catch (e) {
+        console.error(e);
+        app.innerHTML = `<div class="loading"><p class="load-err">${getLang() === 'en' ? 'Couldn’t load. Check the connection and reload.' : '載入失敗，請檢查網路後重新整理。'}</p></div>`;
+        return;
+      }
+      if (n !== routeN) return; // 下載的時候又換到別台或回展廳了
+    }
+    current = startApp(V, {no: item?.no, onHome: () => (location.hash = '')});
   }
 }
 addEventListener('hashchange', route);
