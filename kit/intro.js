@@ -200,7 +200,9 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
   const ac = new AbortController();
   const sig = {signal: ac.signal};
   const info = Object.fromEntries(catalog.map((x) => [x.id, x]));
-  app.innerHTML = `<div class="intro" id="intro"><canvas class="igl"></canvas></div><div class="loading" id="iLoad"><div class="wheel"></div></div>`;
+  // 載入的輪子＋右上角「跳過」：等不及的人可以直接進展廳（不用按返回）
+  app.innerHTML = `<div class="intro" id="intro"><canvas class="igl"></canvas></div><div class="loading" id="iLoad"><div class="wheel"></div><button class="ipill iskipload" id="iSkipLoad">${HP(STR.skip)}</button></div>`;
+  app.querySelector('#iSkipLoad').onclick = () => onDone();
   const root = app.querySelector('#intro');
   const canvas = root.querySelector('canvas');
   const de = document.documentElement;
@@ -211,6 +213,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
   const loadVehicle = async (id) => {
     const V = vehicles[id];
     await V.preload?.();
+    if (gone()) return null; // 已經離開了：不要再建（建模型很重）
     const model = V.build();
     const layerOf = {};
     V.LAYERS.forEach((Ly, i) => Ly.ids.forEach((pid) => (layerOf[pid] = i + 1)));
@@ -241,6 +244,27 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
     return t;
   })();
   scene.environment = envTex;
+  let released = false;
+  const releaseGL = () => {
+    if (released) return;
+    released = true;
+    scene.traverse((o) => {
+      o.geometry?.dispose?.();
+      for (const m of [].concat(o.material || [])) {
+        for (const k in m) if (m[k]?.isTexture) m[k].dispose();
+        m.dispose?.();
+      }
+    });
+    scene.clear();
+    envTex.dispose();
+    renderer.dispose();
+    renderer.forceContextLoss();
+  };
+  const bail = () => {
+    ac.abort();
+    releaseGL();
+    return {dispose() {}};
+  };
   const sun = new THREE.DirectionalLight('#fffaf0', 2.2);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -345,7 +369,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
     V[id] = {meshes: ms, plane, pts, PU, shown: false};
   };
   const car = await loadVehicle('car');
-  if (gone()) return renderer.dispose(), {dispose() {}};
+  if (gone() || !car) return bail();
   place(car, 'car');
   const {model, layerOf} = car;
   const C = boxes.car.getCenter(new THREE.Vector3());
@@ -420,7 +444,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
   // ---------- 其他三台：開播前就準備好（播放中才建會卡一下） ----------
   for (const id of ['bus', 'plane', 'train']) {
     const v = await loadVehicle(id);
-    if (gone()) return renderer.dispose(), {dispose() {}};
+    if (gone() || !v) return bail();
     place(v, id);
   }
 
@@ -472,7 +496,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
     scene.traverse((o) => (o.isMesh || o.isPoints) && o.frustumCulled && (culled.push(o), (o.frustumCulled = false)));
     // 平行編譯（瀏覽器支援的話不會卡住主執行緒），再真的畫一次，把模型資料送進顯示卡
     await renderer.compileAsync(scene, camera);
-    if (gone()) return renderer.dispose(), {dispose() {}};
+    if (gone()) return bail();
     composer.render(0.016);
     for (const o of culled) o.frustumCulled = true;
     for (const id in V) {
@@ -991,19 +1015,10 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
       for (const t2 of timers) clearTimeout(t2);
       // 離開時頁面換回使用者自己存的日夜
       applyThemeAttr();
-      scene.traverse((o) => {
-        o.geometry?.dispose?.();
-        for (const m of [].concat(o.material || [])) {
-          for (const k in m) if (m[k]?.isTexture) m[k].dispose();
-          m.dispose?.();
-        }
-      });
-      envTex.dispose();
       bokeh.dispose?.();
       bloom.dispose?.();
       composer.dispose?.();
-      renderer.dispose();
-      renderer.forceContextLoss();
+      releaseGL();
       app.innerHTML = '';
     },
   };
