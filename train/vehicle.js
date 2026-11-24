@@ -76,7 +76,10 @@ export default {
   groundMarks: `m = max(m, step(mod(x, 3.0), 0.12) * step(abs(vW.z), 3.0));`,
   groundFade: ['0.6, 0.6', '8.0, 22.0'],
   // 動力那一層（和它的零件）框一整組動力單元（1–4 車，約 100 公尺）
-  cam: {frameLen: {default: 6, 4: 18, motorCars: 18, trailerCars: 18, pantograph: 18, hvCable: 18, transformer: 18, converter: 18, motors: 18, aux: 18}, min: 1.2, max: 70, home: [0.62, 0.26, 0.75], explode: [0.5, 0.9, 0.8], r: [1.0, 1.6], rh: [2.6, 1.0], target: (ex) => [-1.9, 0.42 + 1.0 * ex, 0]},
+  cam: {
+    // 手機直立的窄螢幕放不下 100 公尺：只框 2 節
+    frameLen: {default: 6, get 4() { return innerWidth < innerHeight ? 9 : 18; }, get motorCars() { return innerWidth < innerHeight ? 9 : 18; }, get trailerCars() { return innerWidth < innerHeight ? 9 : 18; },
+      pantograph: 18, hvCable: 18, transformer: 18, converter: 18, motors: 18, aux: 18}, min: 1.2, max: 70, home: [0.62, 0.26, 0.75], explode: [0.5, 0.9, 0.8], r: [1.0, 1.6], rh: [2.6, 1.0], target: (ex) => [-1.9, 0.42 + 1.0 * ex, 0]},
   actions: [
     {id: 'run', icon: ICONS.run, label: ['出發', 'Go']},
     {id: 'seats', icon: ICONS.seats, label: ['轉椅子', 'Turn seats']},

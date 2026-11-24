@@ -351,8 +351,20 @@ export function buildTrain() {
       if (car.type === 'T' || car.type === 'Tc') continue;
       for (const b of [8.69, -8.47]) for (const a of [-1, 1]) (g[i] ||= []).push(cylZ(0.25, 0.6, CAR_X[i] + b + a * 0.6, R_WHEEL + 0.02, a * 0.15, 20));
     }
+    // 每個馬達推的那一根車軸和兩個車輪（拆到動力那一層時，看得出馬達在轉哪一對輪子；拖車的輪子沒有馬達）
+    const ws = {};
+    for (const [i, car] of CARS.entries()) {
+      if (car.type === 'T' || car.type === 'Tc') continue;
+      for (const b of [8.69, -8.47])
+        for (const a of [-1, 1]) {
+          const x = CAR_X[i] + b + a * 1.265;
+          (ws[i] ||= []).push(cylZ(0.08, 1.5, x, R_WHEEL, 0, 12), cylZ(R_WHEEL, 0.13, x, R_WHEEL, 0.7175, 24), cylZ(R_WHEEL, 0.13, x, R_WHEEL, -0.7175, 24));
+          (g[i] ||= []).push(span([x - a * 0.12 - 0.14, R_WHEEL - 0.14, a * 0.15 - 0.16], [x - a * 0.12 + 0.14, R_WHEEL + 0.14, a * 0.15 + 0.16], 0.03)); // 齒輪箱
+        }
+    }
     const motorM = mat.metal('#b07a35', 0.4);
-    piece('motors', Object.values(g).map((gs) => mesh(merge(gs), motorM)), [0, 0, 0], 4); // 第四層（動力）：留在原位，看得出在哪一節
+    const axleM = mat.metal('#a9aeb3', 0.3);
+    piece('motors', [...Object.values(g).map((gs) => mesh(merge(gs), motorM)), ...Object.values(ws).map((gs) => mesh(merge(gs), axleM))], [0, 0, 0], 4); // 第四層（動力）：留在原位，看得出在哪一節
   }
 
   // ---------- 燈：車頭燈（白）、車尾燈（紅）：1 車往南開，車頭燈亮；12 車是車尾，尾燈亮 ----------
