@@ -139,6 +139,14 @@ export default {
         else sayPair('準備降落，放下起落架，伸出襟翼。', 'Getting ready to land: gear down, flaps out.');
       },
       wings: () => {
+        // 示範播到一半再按一次：停下來（和高鐵「電怎麼走」一樣）
+        if (F.wingT >= 0) {
+          F.wingT = -1;
+          S.glow = null;
+          S.glowT = 0;
+          setBtn('wings', false);
+          return;
+        }
         if (S.layer) ctx.setLayer(0);
         F.wingT = 0;
         F.wingPhase = -1;
@@ -270,7 +278,8 @@ export default {
           $('#dSpeed').textContent = Math.round(F.speed);
           $('#dAlt').textContent = Math.round(F.alt).toLocaleString('en-US');
           $('#d101').textContent = (F.alt / SPEC.tower101).toFixed(1);
-          if (!F.flying && F.speed === 0 && F.alt === 0) later(() => !F.flying && F.speed === 0 && ($('#drive').hidden = true), 2500);
+          F.idleT = !F.flying && F.speed === 0 && F.alt === 0 ? (F.idleT || 0) + dt : 0;
+          if (F.idleT > 2.5) $('#drive').hidden = true;
         }
         sound.setSpeed(F.spool * 100);
       },

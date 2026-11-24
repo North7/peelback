@@ -137,10 +137,21 @@ const mixg = (s, k, out) => {
   return o;
 };
 let busy = false;
+let queued = null;
+/** 換語言的字亂碼動畫。動畫跑到一半又按了別的語言：記下最後一次，跑完直接套用（畫面和按鈕才會一致） */
 export function scramble(root, fn) {
   if (RM()) return void fn();
-  if (busy) return;
+  if (busy) {
+    queued = fn;
+    return;
+  }
   busy = true;
+  const finish = () => {
+    busy = false;
+    const q = queued;
+    queued = null;
+    if (q) q();
+  };
   const prep = () => {
     const out = [];
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -174,12 +185,18 @@ export function scramble(root, fn) {
   const l0 = prep();
   run(l0, 200, 200, true, () => {
     for (const o of l0) if (o.n.isConnected) o.n.nodeValue = o.s;
-    fn();
+    try {
+      fn();
+    } catch (e) {
+      // 動畫中途離開了這一頁（例如按了返回）：不要讓 busy 卡住，之後才換得了語言
+      finish();
+      throw e;
+    }
     const list = prep();
     for (const o of list) o.n.nodeValue = mixg(o.s, 0, false);
     run(list, 380, 340, false, () => {
       for (const o of list) o.n.nodeValue = o.s;
-      busy = false;
+      finish();
     });
   });
 }
@@ -217,9 +234,23 @@ export function bindSys(root, {sig, onLang} = {}) {
   const paintTheme = () => {
     const dark = getTheme() === 'dark';
     themeBtn.setAttribute('aria-label', dark ? L('換成白天', 'Light mode') : L('換成晚上', 'Dark mode'));
+    $('#menuBtn')?.setAttribute('aria-label', L('設定', 'Settings')); // 換語言時一起換
   };
   aim(getTheme(), false);
   paintTheme();
+  // 白天／晚上可能從別的地方換（燈光面板、開燈自動變晚上）：日夜鍵的圖示和說明跟著變
+  {
+    let last = getTheme();
+    const mo = new MutationObserver(() => {
+      const t = getTheme();
+      if (t === last) return;
+      last = t;
+      aim(t, true);
+      paintTheme();
+    });
+    mo.observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
+    sig?.signal?.addEventListener('abort', () => mo.disconnect());
+  }
   themeBtn.onclick = () => {
     const to = getTheme() === 'dark' ? 'light' : 'dark';
     aim(to, true);

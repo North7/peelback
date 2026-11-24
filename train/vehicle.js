@@ -39,9 +39,10 @@ export default {
       ${row(['座位', 'Seats'], `<b>${SPEC.seats}</b>`, [`標準車廂 ${SPEC.standard}、商務車廂 ${SPEC.business}`, `Standard ${SPEC.standard}, business ${SPEC.business}`])}
       ${row(['最快', 'Top speed'], `<b>${SPEC.speed}</b> ${HP(['公里／小時', 'km/h'])}`)}
       ${row(['馬達', 'Motors'], `<b>${SPEC.motors}</b>`, ['在 12 節裡的 9 節車廂底下', 'Under 9 of the 12 cars'])}
+      ${row(['動力車', 'Motor cars'], `<b>9</b>`, ['2、3、4、6、7、8、9、10、11 車；1、5、12 車是拖車', 'Cars 2–4 and 6–11; cars 1, 5 and 12 are trailers'])}
       ${row(['重量', 'Weight'], `<b>${SPEC.weight}</b> ${HP(['公噸', 'tonnes'])}`, [`差不多 ${Math.round(SPEC.weight / SPEC.busT)} 台公車那麼重`, `As heavy as about ${Math.round(SPEC.weight / SPEC.busT)} buses`])}
     </dl>
-    <p class="src">${HP(['尺寸、重量、馬達、編組取自維基百科（引用川崎重工和 JRTR 的資料）；每一節的座位照高鐵官網的座位圖排；座椅顏色照新聞報導。集電弓、馬達、車頭燈的樣子和位置是簡化的示意。', 'Size, weight, motors and formation are from Wikipedia (citing Kawasaki and JRTR); the seats in every car follow THSR’s official seat maps; seat colors follow news reports. The pantographs, motors and headlights are simplified.'])}</p>
+    <p class="src">${HP(['尺寸、重量、馬達、編組取自維基百科（引用川崎重工和 JRTR 的資料）；每一節的座位照高鐵官網的座位圖排；座椅顏色照新聞報導。集電弓、馬達、車頭燈的樣子是簡化的示意；主變壓器、主變流器、輔助電源放在哪幾節，高鐵沒有公布，是照 700T 的原型日本 700 系的放法推的。', 'Size, weight, motors and formation are from Wikipedia (citing Kawasaki and JRTR); the seats in every car follow THSR’s official seat maps; seat colors follow news reports. The pantographs, motors and headlights are simplified. THSR hasn’t published which cars carry the main transformers, converters and auxiliary power, so their places follow the Japanese 700 Series the 700T is based on.'])}</p>
     <p class="src credit">3D：“THSR 700T / Interior (Locomotive 01)”・“Taiwan HSR700T / Interior (Cabin 02)” by Basic Hsu（CC BY 4.0）・Sketchfab</p>`;
   },
   LAYERS: [
@@ -94,7 +95,7 @@ export default {
 
   setup(ctx) {
     const {model, $, sound, sayPair, setBtn, later} = ctx;
-    const V = {running: false, speed: 0, dist: 0, turned: false, turnP: 0, shown: 0, powerT: -1, powerPh: -1};
+    const V = {running: false, speed: 0, dist: 0, turned: false, turnP: 0, shown: 0, powerT: -1, powerPh: -1, idleT: 0};
     // 轉椅子：每個位子在原地轉半圈（真的高鐵椅子可以轉，永遠面向火車前進的方向）
     const seatMeshes = [];
     for (const id of ['standard', 'business', 'accessible']) for (const m of model.parts[id]?.meshes || []) if (m.isInstancedMesh) seatMeshes.push({m, list: id === 'standard' ? SEATS.std : id === 'business' ? SEATS.biz : SEATS.wheel});
@@ -149,6 +150,13 @@ export default {
     return {
       handlers,
       update(dt) {
+        // 「電怎麼走」播到一半離開了動力那一層（組回去、轉椅子）：示範停下來
+        if (V.powerT >= 0 && V.powerWait <= 0 && ctx.S.layer !== 4) {
+          V.powerT = -1;
+          ctx.S.glow = null;
+          ctx.S.glowT = 0;
+          setBtn('power', false);
+        }
         if (V.powerT >= 0 && V.powerWait > 0) V.powerWait -= dt;
         else if (V.powerT >= 0) {
           V.powerT += dt;
@@ -188,7 +196,8 @@ export default {
           $('#dSpeed').textContent = Math.round(V.speed);
           $('#dTurn').textContent = (V.speed / 3.6 / WHEEL_C).toFixed(1);
           $('#dDist').textContent = Math.floor(V.dist / 0.08);
-          if (!V.running && V.speed === 0) later(() => !V.running && V.speed === 0 && ($('#drive').hidden = true), 2500);
+          V.idleT = !V.running && V.speed === 0 ? V.idleT + dt : 0;
+          if (V.idleT > 2.5) $('#drive').hidden = true;
         }
         sound.setSpeed(V.speed / 6);
       },

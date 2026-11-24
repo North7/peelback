@@ -102,7 +102,8 @@ export default {
 
   setup(ctx) {
     const {model: bus, S, $, app, sound, sayPair, setBtn, later} = ctx;
-    const V = {driving: false, speed: 0, dist: 0, crank: 0, doorOpen: false, doorP: 0};
+    // pending：使用者按了「開門」但車還在跑（或按「開車」但門還開著）時，等車停好／門關好才做的那一件事
+    const V = {driving: false, speed: 0, dist: 0, crank: 0, doorOpen: false, doorP: 0, pending: null, idleT: 0};
     // ---- 柴油／電動切換＋「哪裡不一樣」 ----
     $('#extraTop').innerHTML = `<div class="vrow">
       <div class="variant" id="variant" role="group">
@@ -133,7 +134,7 @@ export default {
       const grid = $('#diffGrid');
       grid.innerHTML =
         `<span class="dh">${ICONS.fuel}${HP(['柴油', 'Diesel'])}</span><span></span><span class="dh">${ICONS.bolt}${HP(['電動', 'Electric'])}</span>` +
-        DIFFS.map((r, i) => `${cell(r.d, [r.dText, r.dTextEn], 'diesel', i)}<button class="arrow" data-i="${i}">${ICONS.sound}</button>${cell(r.e, [r.eText, r.eTextEn], 'ev', i)}`).join('');
+        DIFFS.map((r, i) => `${cell(r.d, [r.dText, r.dTextEn], 'diesel', i)}<button class="arrow" data-i="${i}" aria-label="${L('聽聽看', 'Listen')}">${ICONS.sound}</button>${cell(r.e, [r.eText, r.eTextEn], 'ev', i)}`).join('');
       for (const b of grid.querySelectorAll('[data-id]'))
         b.onclick = () => {
           sound.pop(600);
@@ -200,6 +201,9 @@ export default {
     $('#diffBtn').onclick = () => {
       sound.unlock();
       if (dc.hidden) {
+        // 一次只開一張卡片：先關掉零件卡片、燈光面板，取消選中的零件
+        ctx.select(null);
+        ctx.hideSidecards();
         showDiff();
         glowChanged();
         sayPair('柴油公車和電動公車，有這些地方不一樣。點名字去看看。', 'A diesel bus and an electric bus differ in these places. Tap a name to go and look.');
@@ -208,11 +212,12 @@ export default {
     $('#dClose').onclick = () => ctx.hideSidecards();
 
     const handlers = {
-      drive: () => {
+      drive: (auto) => {
+        if (auto !== true) V.pending = null; // 使用者自己按：取消還在等的那件事
         if (!V.driving && V.doorOpen) {
           sayPair('先把門關好，才能開車喔。', 'Close the doors first, then we can drive.');
-          handlers.door();
-          later(() => !V.driving && handlers.drive(), 2600);
+          handlers.door(true);
+          V.pending = 'drive'; // 門關好（update 裡看）才出發
           return;
         }
         V.driving = !V.driving;
@@ -223,11 +228,12 @@ export default {
         else if (S.variant === 'ev') sayPair('出發囉！電動公車好安靜，聽聽看。', 'Here we go! Listen, the electric bus is so quiet.');
         else sayPair('出發囉！看看輪子和傳動軸怎麼轉。', 'Here we go! Watch how the wheels and drive shaft turn.');
       },
-      door: () => {
-        if (V.driving) {
+      door: (auto) => {
+        if (auto !== true) V.pending = null;
+        if (V.driving || V.speed > 0) {
           sayPair('公車要先停好，才能開門喔。', 'The bus has to stop before the doors can open.');
-          handlers.drive();
-          later(() => !V.doorOpen && handlers.door(), 2400);
+          if (V.driving) handlers.drive(true);
+          V.pending = 'door'; // 完全停下來（update 裡看）才開門
           return;
         }
         V.doorOpen = !V.doorOpen;
@@ -265,6 +271,14 @@ export default {
         const dWant = V.doorOpen ? 3 : 0;
         const rate = 1.35 * dt;
         V.doorP = V.doorP < dWant ? Math.min(dWant, V.doorP + rate) : Math.max(dWant, V.doorP - rate);
+        // 等著的那件事：車完全停下才開門、門完全關好才出發
+        if (V.pending === 'door' && V.speed === 0) {
+          V.pending = null;
+          handlers.door(true);
+        } else if (V.pending === 'drive' && !V.doorOpen && V.doorP < 0.02) {
+          V.pending = null;
+          handlers.drive(true);
+        }
         const kneel = smooth(V.doorP);
         const doorK = smooth(V.doorP - 1);
         const rampK = smooth(V.doorP - 2);
@@ -324,7 +338,9 @@ export default {
           $('#dSpeed').textContent = Math.round(V.speed);
           $('#dTurn').textContent = (V.speed / 3.6 / tireCirc()).toFixed(1);
           $('#dDist').textContent = Math.floor(V.dist);
-          if (!V.driving && V.speed === 0) later(() => !V.driving && V.speed === 0 && ($('#drive').hidden = true), 2500);
+          // 停好 2.5 秒後收起數字（只算時間，不要每一格都排一個計時器）
+          V.idleT = !V.driving && V.speed === 0 ? V.idleT + dt : 0;
+          if (V.idleT > 2.5) $('#drive').hidden = true;
         }
         sound.setSpeed(V.speed);
       },

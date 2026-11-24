@@ -72,7 +72,7 @@ export function startHome({cats, items, onOpen, lastId}) {
   function renderStrip() {
     const L2 = list();
     $('#strip').innerHTML = L2.length
-      ? L2.map((x, i) => `<button class="th${i === S.i ? ' on' : ''}" data-i="${i}" aria-label="${x.no}"><span class="no">No.${x.no}</span><img src="${x.img}" alt="" draggable="false"></button>`).join('')
+      ? L2.map((x, i) => `<button class="th${i === S.i ? ' on' : ''}" data-i="${i}" aria-label="No.${x.no} ${L(...x.brand)} ${L(...x.name)}"><span class="no">No.${x.no}</span><img src="${x.img}" alt="" draggable="false"></button>`).join('')
       : '';
     for (const b of app.querySelectorAll('#strip .th')) b.onclick = () => go(+b.dataset.i - S.i);
   }
@@ -121,7 +121,7 @@ export function startHome({cats, items, onOpen, lastId}) {
   function setCat(id) {
     S.cat = id;
     S.i = 0;
-    for (const b of app.querySelectorAll('#htabs button')) b.classList.toggle('on', b.dataset.c === id);
+    for (const b of app.querySelectorAll('#htabs button')) b.setAttribute('aria-pressed', String(b.classList.toggle('on', b.dataset.c === id)));
     moveInd();
     renderStrip();
     show(1);
@@ -133,7 +133,8 @@ export function startHome({cats, items, onOpen, lastId}) {
   addEventListener('keydown', (e) => {
     if (e.key === 'ArrowRight') go(1);
     else if (e.key === 'ArrowLeft') go(-1);
-    else if (e.key === 'Enter' && list()[S.i]) onOpen(list()[S.i].id);
+    // Enter 只在焦點不在按鈕、連結上時才進車（不然在「上一台」或分類上按 Enter 也會進去）
+    else if (e.key === 'Enter' && list()[S.i] && !e.target.closest?.('button, a, input')) onOpen(list()[S.i].id);
   }, sig);
   // 左右滑換下一台
   let sx = null;
@@ -148,7 +149,7 @@ export function startHome({cats, items, onOpen, lastId}) {
   addEventListener('resize', moveInd, sig);
 
   bindSys(app, {sig, onLang: renderTexts});
-  for (const b of app.querySelectorAll('#htabs button')) b.classList.toggle('on', b.dataset.c === S.cat);
+  for (const b of app.querySelectorAll('#htabs button')) b.setAttribute('aria-pressed', String(b.classList.toggle('on', b.dataset.c === S.cat)));
   renderTexts();
   if (!REDUCED) spring(app.querySelector('.home'), [{opacity: 0, transform: 'scale(0.985)'}, {opacity: 1, transform: 'none'}], 520);
 

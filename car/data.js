@@ -1,6 +1,6 @@
 // 特斯拉 Model Y 新版（2025「Juniper」）：零件說明和數字。
 // 尺寸：ev-database、auto-data 等第三方規格資料庫（車長 4,790、車寬 1,920／含後照鏡 2,129、車高 1,624、軸距 2,890 mm）；
-// 螢幕 15.4 吋、後座 8 吋、台灣首批只賣 5 人座長程雙馬達：INSIDE 報導。電池約 79 kWh 是長程雙馬達版的可用容量（ev-database）。
+// 螢幕 16 吋（特斯拉台灣官網）、後座 8 吋、台灣首批只賣 5 人座長程雙馬達：INSIDE 報導。電池約 79 kWh 是長程雙馬達版的可用容量（ev-database）。
 // 車裡零件的位置照一般的配置簡化，不是原廠圖。
 
 export const SPEC = {
@@ -28,7 +28,7 @@ export const PARTS = {
     fact: '電動車不用很大的進氣口，所以車頭可以做得很光滑。'},
   hood: {name: '前車廂蓋', en: 'front trunk lid',
     say: '這個蓋子下面沒有引擎！打開來是一個可以放東西的前車廂。',
-    fact: '前車廂可以裝大約 117 公升，差不多兩個書包。'},
+    fact: '前車廂可以裝大約 116 公升，差不多兩個書包。'},
   windshield: {name: '擋風玻璃', en: 'windshield',
     say: '擋風玻璃又大又斜，空氣比較容易滑過去，車子比較省電。',
     fact: '玻璃上面有雨刷，下雨時會自己動起來。'},
@@ -109,7 +109,7 @@ export const PARTS = {
 // ---------- English ----------
 const EN = {
   front: ['The new Model Y has no grille. A thin light bar runs across the top, and the headlights hide in black frames at the bottom corners.', 'An electric car doesn’t need big air intakes, so the front can be really smooth.'],
-  hood: ['There’s no engine under this lid! It opens up to a front trunk for your stuff.', 'The front trunk holds about 117 liters, about two school backpacks.'],
+  hood: ['There’s no engine under this lid! It opens up to a front trunk for your stuff.', 'The front trunk holds about 116 liters, about two school backpacks.'],
   windshield: ['The windshield is big and sloped so air slides over it, and the car uses less electricity.', 'Wipers start by themselves when it rains.'],
   roof: ['The whole roof is one big sheet of glass. From the back seat you can look up at the sky and clouds.', 'The glass blocks most of the sun’s heat, so the inside doesn’t get too hot.'],
   doors: ['Four doors with flat handles that sit flush. Press one and it pops out.', 'The new Model Y opens its doors with a button instead of a pull handle.'],

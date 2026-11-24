@@ -13,7 +13,8 @@ import {createSound} from './sound.js';
 import {L, Lp, H, HP, esc, getLang, setLang} from './i18n.js';
 import {sysMenu, bindSys, ICON2, spring, scramble, getTheme, setTheme} from './ui.js';
 
-const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// 「減少動態」：每次都讀現在的設定（使用者中途改了也會跟著變）
+const RM_Q = matchMedia('(prefers-reduced-motion: reduce)');
 export const clamp01 = (x) => Math.min(1, Math.max(0, x));
 export const smooth = (x) => {
   const k = clamp01(x);
@@ -590,7 +591,7 @@ ${
       const t = n === ALL || (n > 0 && li <= n) ? 1 : 0;
       if (t === p.target) continue;
       p.target = t;
-      p.wait = REDUCED ? 0 : t ? ((p.order % 4) + (n === ALL ? li : 0)) * 0.06 : (NL - li) * 0.08;
+      p.wait = RM_Q.matches ? 0 : t ? ((p.order % 4) + (n === ALL ? li : 0)) * 0.06 : (NL - li) * 0.08;
     }
     setBtn('explode', n > 0, n > 0 ? STR.assemble : STR.explode);
     updateStack(n);
@@ -646,8 +647,31 @@ ${
     }
     dir.normalize();
     camera.up.set(0, 1, 0);
-    const rv = (Math.max(size.y, size.z * 0.7, 1.2) * 0.75 + 0.6) * 1.15;
-    const rh = (Math.max(size.x, size.z) * 0.55 + 0.6) * 1.15;
+    let rv = (Math.max(size.y, size.z * 0.7, 1.2) * 0.75 + 0.6) * 1.15;
+    let rh = (Math.max(size.x, size.z) * 0.55 + 0.6) * 1.15;
+    // 直立的手機看長長的東西（飛機客艙、火車）：鏡頭轉到比較斜的角度，讓長的那一邊往畫面深處延伸，東西才不會縮成中間一小條；
+    // 距離照這個角度實際投影出來的寬高算
+    if (camera.aspect < 0.8 && size.x > 2.2 * Math.max(size.z, size.y)) {
+      dir.set(Math.sign(dir.x) || 1, 0, 0.75 * (Math.sign(dir.z) || 1)).normalize();
+      dir.y = 0.55;
+      dir.normalize();
+      const right = new THREE.Vector3(0, 1, 0).cross(dir).normalize();
+      const upv = dir.clone().cross(right).normalize();
+      rv = rh = 0;
+      for (const x of [-0.5, 0.5]) for (const y of [-0.5, 0.5]) for (const z of [-0.5, 0.5]) {
+        const v = new THREE.Vector3(x * size.x, y * size.y, z * size.z);
+        rh = Math.max(rh, Math.abs(v.dot(right)));
+        rv = Math.max(rv, Math.abs(v.dot(upv)));
+      }
+      rh = rh * 1.08 + 0.3;
+      rv = rv * 1.08 + 0.3;
+      // 透視：靠鏡頭那一端看起來比較大，多退一點
+      let dd = 0;
+      for (const x of [-0.5, 0.5]) for (const z of [-0.5, 0.5]) dd = Math.max(dd, Math.abs(new THREE.Vector3(x * size.x, 0, z * size.z).dot(dir)));
+      view.wantTarget.copy(c);
+      view.want = dir.multiplyScalar(fitDistance(rv, rh) + dd * 0.35).add(c);
+      return;
+    }
     view.wantTarget.copy(c);
     view.want = dir.multiplyScalar(fitDistance(rv, rh)).add(c);
   }
@@ -711,6 +735,7 @@ ${
     let any = false;
     for (const c of app.querySelectorAll('.sidecard')) if (!c.hidden) (c.hidden = true), (any = true);
     app.querySelector('#lightBtn')?.classList.remove('on');
+    app.querySelector('#lightBtn')?.setAttribute('aria-expanded', 'false');
     if (any) requestAnimationFrame(resize);
   };
   function fillCard(id) {
@@ -862,6 +887,7 @@ ${
         select(null);
         lc.hidden = false;
         $('#lightBtn').classList.add('on');
+        $('#lightBtn').setAttribute('aria-expanded', 'true');
         lc.classList.remove('pop');
         void lc.offsetWidth;
         lc.classList.add('pop');
@@ -951,7 +977,8 @@ ${
     sound.unlock();
     opts.onHome?.();
   };
-  bindSys(app, {sig});
+  const sys = bindSys(app, {sig});
+  addEventListener('visibilitychange', () => (document.hidden ? sound.suspend() : sound.resume()), sig);
   // 手機：「更多」把放不下的按鈕從控制列上面長出來
   const bar = $('#bar');
   $('#moreBtn').onclick = () => {
@@ -973,8 +1000,10 @@ ${
       speechSynthesis?.cancel();
       sound.pop(560);
       scramble(app, () => {
+        if (!alive) return;
         setLang(b.dataset.l);
         renderTexts();
+        sys.paintTheme();
       });
     });
   }
@@ -1033,8 +1062,8 @@ ${
     for (const p of model.pieces) {
       if (p.wait > 0) p.wait -= dt;
       else {
-        const k = REDUCED ? 400 : 120;
-        const c = REDUCED ? 40 : 15;
+        const k = RM_Q.matches ? 400 : 120;
+        const c = RM_Q.matches ? 40 : 15;
         p.v += (k * (p.target - p.x) - c * p.v) * dt;
         p.x += p.v * dt;
       }
@@ -1046,7 +1075,7 @@ ${
       const want = present(p.id) ? 1 : 0;
       if (p.pwait > 0) p.pwait -= dt;
       else {
-        p.pv += ((REDUCED ? 400 : 170) * (want - p.pres) - (REDUCED ? 40 : 16) * p.pv) * dt;
+        p.pv += ((RM_Q.matches ? 400 : 170) * (want - p.pres) - (RM_Q.matches ? 40 : 16) * p.pv) * dt;
         p.pres += p.pv * dt;
         if (want === 0 && p.pres < 0.02) (p.pres = 0), (p.pv = 0);
       }
@@ -1113,12 +1142,13 @@ ${
 
     // 鏡頭
     if (view.want) {
-      const k = 1 - Math.exp(-dt * 3.2);
+      // 減少動態：鏡頭直接到，不飛
+      const k = RM_Q.matches ? 1 : 1 - Math.exp(-dt * 3.2);
       camera.position.lerp(view.want, k);
       controls.target.lerp(view.wantTarget, k);
       if (camera.position.distanceTo(view.want) < 0.05) view.want = null;
     }
-    if (!REDUCED && now - S.lastInput > 25000 && !view.want) {
+    if (!RM_Q.matches && now - S.lastInput > 25000 && !view.want) {
       tmpV.copy(camera.position).sub(controls.target).applyAxisAngle(camera.up, dt * 0.1);
       camera.position.copy(controls.target).add(tmpV);
     }
@@ -1168,7 +1198,7 @@ ${
   // 名牌位置：零件最靠近鏡頭的那一塊的頂端，往上拉一條細線；疊到了就把線拉長再試，還是疊到就先藏起來
   const labelBox = new THREE.Box3();
   const labelC = new THREE.Vector3();
-  const STEMS = [16, 46, 76];
+  const STEMS = [16, 46, 76, 106, 136]; // 名牌疊到別的名牌時，往上拉高一段再試（零件多、擠在一起時才標得出來）
   const occRay = new THREE.Raycaster();
   const occDir = new THREE.Vector3();
   let occFrame = 0;
@@ -1239,12 +1269,15 @@ ${
         const sx = (tmpV.x * 0.5 + 0.5) * W;
         const sy = (-tmpV.y * 0.5 + 0.5) * Hh;
         if (tmpV.z < 1 && sx > 8 && sx < W - 8 && sy > 8 && sy < Hh - 8) {
+          // 零件靠近畫面邊緣：名牌往內側挪（連接線還是指著零件），不要因為超出畫面就整個不標
+          const dx = Math.max(4 - (sx - Lb.w / 2 - 3), Math.min(0, W - 4 - (sx + Lb.w / 2 + 3)));
           for (const stem of STEMS) {
-            const r = {x: sx - Lb.w / 2 - 3, y: sy - stem - Lb.h - 3, w: Lb.w + 6, h: Lb.h + 6};
+            const r = {x: sx - Lb.w / 2 - 3 + dx, y: sy - stem - Lb.h - 3, w: Lb.w + 6, h: Lb.h + 6};
             if (r.y < 4 || r.x < 4 || r.x + r.w > W - 4 || hit(r)) continue;
             taken.push(r);
             Lb.el.style.transform = `translate(${sx}px, ${sy}px)`;
             Lb.el.style.setProperty('--stem', stem + 'px');
+            Lb.el.style.setProperty('--dx', dx + 'px');
             ok = true;
             break;
           }
@@ -1275,6 +1308,7 @@ ${
 
   return {
     dispose() {
+      if (window.__BUS?.bus === model) delete window.__BUS; // 回到展廳後不要再抓著上一台的模型
       alive = false;
       cancelAnimationFrame(raf);
       ac.abort();

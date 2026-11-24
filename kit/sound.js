@@ -149,6 +149,13 @@ export function createSound() {
         eng = {o, o2, g, lp, mode};
       }
     },
+    // 切到別的分頁：整個聲音先停（畫面不會更新，引擎聲就不會一直響）
+    suspend() {
+      if (ctx && ctx.state === 'running') ctx.suspend();
+    },
+    resume() {
+      if (ctx && ctx.state === 'suspended') ctx.resume();
+    },
     setSpeed(v) {
       if (!eng) return;
       const t = ctx.currentTime;

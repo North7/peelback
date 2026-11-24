@@ -24,7 +24,7 @@ export default {
       ${row(['寬', 'Width'], `<b>${SPEC.width}</b> ${HP(['公尺', 'm'])}`, ['加上後照鏡 2.13 公尺', '2.13 m with the mirrors'])}
       ${row(['高', 'Height'], `<b>${SPEC.height}</b> ${HP(['公尺', 'm'])}`)}
       ${row(['座位', 'Seats'], `<b>${SPEC.seats}</b>`)}
-      ${row(['螢幕', 'Screens'], `<b>15.4</b> ${HP(['吋', 'in'])}・<b>8</b> ${HP(['吋', 'in'])}`, ['前面一個大的、後座一個小的', 'A big one in front, a small one in back'])}
+      ${row(['螢幕', 'Screens'], `<b>${SPEC.screen}</b> ${HP(['吋', 'in'])}・<b>${SPEC.rearScreen}</b> ${HP(['吋', 'in'])}`, ['前面一個大的、後座一個小的', 'A big one in front, a small one in back'])}
       ${row(['電池', 'Battery'], `${HP(['大約', 'About'])} <b>${SPEC.battery}</b> ${HP(['度電', 'kWh'])}`, ['差不多可以把 5000 支手機充飽', 'Enough to charge about 5,000 phones'])}
       ${row(['馬達', 'Motors'], `<b>2</b>`, ['前面一個、後面一個，四輪都出力', 'One front, one rear: all-wheel drive'])}
     </dl>
@@ -82,13 +82,15 @@ export default {
 
   setup(ctx) {
     const {model: car, $, sound, sayPair, setBtn, later} = ctx;
-    const V = {driving: false, speed: 0, dist: 0, open: false, openP: 0};
+    // pending：等車停好才開門、等門關好才出發（使用者自己按任何一顆就取消）
+    const V = {driving: false, speed: 0, dist: 0, open: false, openP: 0, pending: null, idleT: 0};
     const handlers = {
-      drive: () => {
+      drive: (auto) => {
+        if (auto !== true) V.pending = null;
         if (!V.driving && V.open) {
           sayPair('先把車門關好，才能開車喔。', 'Close the doors first, then we can drive.');
-          handlers.open();
-          later(() => !V.driving && handlers.drive(), 1800);
+          handlers.open(true);
+          V.pending = 'drive';
           return;
         }
         V.driving = !V.driving;
@@ -98,11 +100,12 @@ export default {
         if (V.driving) sayPair('出發囉！電動車好安靜，聽聽看。', 'Here we go! Listen, the electric car is so quiet.');
         else sayPair('停車囉。', 'We stopped.');
       },
-      open: () => {
-        if (V.driving) {
+      open: (auto) => {
+        if (auto !== true) V.pending = null;
+        if (V.driving || V.speed > 0) {
           sayPair('車子要先停好，才能開門喔。', 'The car has to stop before the doors can open.');
-          handlers.drive();
-          later(() => !V.open && handlers.open(), 2000);
+          if (V.driving) handlers.drive(true);
+          V.pending = 'open';
           return;
         }
         V.open = !V.open;
@@ -121,6 +124,18 @@ export default {
         V.dist += (V.speed / 3.6) * dt;
         // 打開：車門、前車廂蓋、尾門一起慢慢打開（拆開的時候先關上）
         V.openP += ((V.open ? 1 : 0) - V.openP) * (1 - Math.exp(-dt * 2.6));
+        if (V.pending === 'open' && V.speed === 0) {
+          V.pending = null;
+          handlers.open(true);
+        } else if (V.pending === 'drive' && !V.open && V.openP < 0.03) {
+          V.pending = null;
+          handlers.drive(true);
+        }
+        // 拆開的時候門會關上：按鈕也要跟著變回「打開」
+        if (ex > 0.5 && V.open) {
+          V.open = false;
+          setBtn('open', false, ['打開', 'Open']);
+        }
         const k = smooth(V.openP) * (1 - ex);
         for (const d of car.open.doors) d.grp.rotation.y = d.side * k * (d.front ? 62 : 58) * DEG;
         car.open.hood.rotation.z = k * 48 * DEG;
@@ -136,7 +151,8 @@ export default {
           $('#dSpeed').textContent = Math.round(V.speed);
           $('#dTurn').textContent = (V.speed / 3.6 / tireCirc()).toFixed(1);
           $('#dDist').textContent = Math.floor(V.dist);
-          if (!V.driving && V.speed === 0) later(() => !V.driving && V.speed === 0 && ($('#drive').hidden = true), 2500);
+          V.idleT = !V.driving && V.speed === 0 ? V.idleT + dt : 0;
+          if (V.idleT > 2.5) $('#drive').hidden = true;
         }
         sound.setSpeed(V.speed);
       },
