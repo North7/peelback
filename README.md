@@ -23,6 +23,9 @@
 - 汽車底盤：“Tesla Model X chassis” by Michael Zhang（beyond.zht），Sketchfab，CC BY 4.0
 - 汽車電池：“Tesla Batterie Pack V2” by AniMtrX，Sketchfab，CC BY 4.0
 - 汽車前後馬達：“Tesla Front / Rear Small Drive Unit” by tangentinnovationgroup，Sketchfab，CC BY 4.0
+- 飛機機翼、尾翼、舵面、機頭機尾外殼：“A350 V4” by Newbie99999993，Sketchfab，CC BY 4.0（機身中段照它量的尺寸用程式畫）
+- 飛機引擎：“Roll Royce Trent XWB Engine” by hakai315，Sketchfab，CC BY 4.0
+- 飛機起落架：“A350-1000 Landing Gear” by N.S STUDIOS，Sketchfab，CC BY 4.0
 - 公車、飛機：用程式自己畫的
 
 原始下載檔不在這個倉庫（`ref/` 只留在本機）；`car/sk/` 是拆成零件、壓縮過的版本（`tools/sk_export.py`、`tools/sk_parts.py`）。

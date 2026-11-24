@@ -6,7 +6,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const [, , out, bg, theme] = process.argv;
 const b = await chromium.launch({args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist']});
 const views = {bus: [-0.62, 0.3, 0.72], plane: [-0.55, 0.42, 0.72], car: [0.65, 0.28, -0.7]};
-for (const v of ['bus', 'plane', 'car']) {
+for (const v of (process.env.ONLY || 'bus,plane,car').split(',')) {
   const p = await b.newPage({viewport: {width: 1600, height: 1000}});
   await p.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   await p.goto('file://' + path.join(ROOT, 'dist/peelback.html') + '#' + v);
