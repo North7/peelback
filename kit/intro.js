@@ -29,7 +29,7 @@ const REPLAY = '<svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const STR = {
   kicker: ['剝剝看 Peelback', 'Peelback'],
-  h1a: ['把真的車，', 'Real vehicles,'],
+  h1a: ['把真的交通工具，', 'Real vehicles,'],
   h1b: ['一層一層剝開', 'peeled layer by layer'],
   sub: ['公車、飛機、汽車、高鐵，照實車的尺寸和零件做成 3D。點一下拆開，看看裡面有什麼。', 'A bus, a plane, a car and a high-speed train, built in 3D from their real sizes and parts. Tap one to take it apart and see what’s inside.'],
   go: ['進展廳', 'Enter the gallery'],
@@ -623,7 +623,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
   const renderStatic = () => {
     $('.brand .word span').innerHTML = H('剝剝看');
     $('.ikicker').innerHTML = HP(STR.kicker);
-    $('#iCopy h1').innerHTML = `${HP(STR.h1a)}<br>${HP(STR.h1b)}`;
+    $('#iCopy h1').innerHTML = `<span class="ln">${HP(STR.h1a)}</span><br><span class="ln">${HP(STR.h1b)}</span>`;
     $('.isub').innerHTML = HP(STR.sub);
     for (const b of root.querySelectorAll('[data-go] span')) b.innerHTML = HP(STR.go);
     $('#iSkip').innerHTML = HP(STR.skip);
@@ -757,7 +757,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
     canvas.addEventListener('pointerdown', (e) => (down = {x: e.clientX, y: e.clientY, yaw: orbit.yaw.to, pitch: orbit.pitch.to}), sig);
     addEventListener('pointermove', (e) => {
       if (!down) return;
-      orbit.yaw.to = down.yaw - (e.clientX - down.x) * 0.004;
+      orbit.yaw.to = down.yaw + (e.clientX - down.x) * 0.004; // 和看車頁一樣：往右拖，車子往右轉
       orbit.pitch.to = Math.max(-0.3, Math.min(0.4, down.pitch + (e.clientY - down.y) * 0.003));
     }, sig);
     addEventListener('pointerup', () => {

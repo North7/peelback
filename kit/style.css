@@ -811,7 +811,7 @@ html[data-lang="en"] .ipill { font-family: var(--f-sans); }
 .icopy.away, .ichap.off { opacity: 0; transform: translateY(-14px); filter: blur(6px); pointer-events: none; }
 .ikicker { margin: 0 0 14px; display: flex; align-items: center; gap: 10px; font: 500 11px/1 var(--f-mono); letter-spacing: 0.16em; color: var(--muted); }
 .ikicker::before { content: ""; width: 18px; height: 1.5px; background: var(--accent); }
-.icopy h1 { margin: 0; font: 800 clamp(34px, 5.2vw, 68px)/1.1 var(--f-zh); letter-spacing: -0.01em; text-wrap: balance; }
+.icopy h1 { margin: 0; font: 800 clamp(34px, 4.6vw, 60px)/1.1 var(--f-zh); letter-spacing: -0.01em; text-wrap: balance; }
 html[data-lang="en"] .icopy h1 { font-family: var(--f-sans); letter-spacing: -0.03em; }
 .isub { margin: 16px 0 0; max-width: 30em; font: 500 clamp(14px, 1.25vw, 16px)/1.7 var(--f-zh); color: var(--muted); }
 .icta { margin-top: 20px; height: 50px; padding: 0 24px 0 18px; display: inline-flex; align-items: center; gap: 10px; border-radius: 25px; background: var(--accent); color: var(--accent-ink);
@@ -909,11 +909,16 @@ html[data-lang="en"] .ichap h2 { font-family: var(--f-sans); letter-spacing: -0.
   .ihint svg, .ihint .flow { animation: none; }
 }
 /* 注音模式：每個字右邊多一排注音，標題比較寬：縮一號、可用寬度放寬，不然最後一個字會掉到下一行 */
+/* 中文的大標題固定兩行（「把真的交通工具，」「一層一層剝開」），一行裡不斷開；英文照常換行 */
+html:not([data-lang="en"]) .icopy h1 .ln { white-space: nowrap; }
 @media (min-width: 701px) {
+  html[data-lang="zy"] .icopy { max-width: min(700px, 58vw); }
+  html[data-lang="zy"] .icopy h1 { font-size: clamp(30px, 3.4vw, 50px); }
   html[data-lang="zy"] .ichap { max-width: min(640px, 52vw); }
   html[data-lang="zy"] .ichap h2 { font-size: clamp(26px, 2.9vw, 40px); }
 }
 @media (max-width: 700px) {
-  html[data-lang="zy"] .icopy h1 { font-size: clamp(26px, 7.4vw, 36px); }
+  html[data-lang="zy"] .icopy h1 { font-size: clamp(22px, 6.4vw, 32px); }
+  html[data-lang="zh"] .icopy h1 { font-size: clamp(28px, 8.4vw, 38px); }
   html[data-lang="zy"] .ichap h2 { font-size: clamp(22px, 6vw, 32px); }
 }
