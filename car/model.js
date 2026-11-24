@@ -402,7 +402,8 @@ export function buildCar() {
       (shell['int_' + g.tag] ||= []).push(mesh(skGeo(g), im));
       continue;
     }
-    const key = g.mat + '|' + (['windshield', 'liftgate', 'rear'].includes(g.part) ? g.part : '') + g.tag;
+    // 材質照零件分開快取的：擋風玻璃、尾門、車尾，還有燈罩（車頭透明、車尾紅色，不能共用同一份）
+    const key = g.mat + '|' + (['windshield', 'liftgate', 'rear'].includes(g.part) || g.mat === 'glass_headlight222' ? g.part : '') + g.tag;
     if (!matCache.has(key)) matCache.set(key, skMaterial(g.mat, g.part, g.tag));
     const m = matCache.get(key);
     const o = mesh(skGeo(g), m);
