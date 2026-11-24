@@ -826,10 +826,11 @@ html[data-lang="en"] .icta { font-family: var(--f-sans); }
 .ichap h2 { margin: 0; padding-bottom: 0.06em; overflow: hidden; font: 800 clamp(28px, 3.4vw, 46px)/1.15 var(--f-zh); }
 html[data-lang="en"] .ichap h2 { font-family: var(--f-sans); letter-spacing: -0.02em; }
 .ichap p { margin: 12px 0 0; overflow: hidden; font: 500 clamp(14px, 1.2vw, 16px)/1.7 var(--f-zh); color: var(--muted); }
-.ichap h2 span, .ichap p span { display: inline-block; transform: translateY(110%); opacity: 0; }
+/* 只套在字幕最外層那一個 span（注音也是 span，不能被改掉排法，不然注音會掉到字的下面） */
+.ichap h2 > span, .ichap p > span { display: inline-block; transform: translateY(110%); opacity: 0; }
 .ichap.in em { opacity: 1; }
-.ichap.in h2 span { animation: iunmask 0.8s var(--out) forwards; }
-.ichap.in p span { animation: iunmask 0.8s var(--out) 0.1s forwards; }
+.ichap.in h2 > span { animation: iunmask 0.8s var(--out) forwards; }
+.ichap.in p > span { animation: iunmask 0.8s var(--out) 0.1s forwards; }
 @keyframes iunmask { to { transform: none; opacity: 1; } }
 .ichap .icta { display: none; }
 .ichap.withcta .icta { display: inline-flex; animation: irise 0.8s var(--out) 0.3s both; }
@@ -847,7 +848,7 @@ html[data-lang="en"] .ichap h2 { font-family: var(--f-sans); letter-spacing: -0.
 .icard.on .in { opacity: 1; transform: none; }
 .icard em { grid-row: span 2; padding-top: 3px; font: 500 11px/1 var(--f-mono); font-style: normal; color: var(--accent); }
 .icard b { font: 800 16px/1.2 var(--f-zh); }
-.icard span { font: 500 12.5px/1.3 var(--f-zh); color: var(--muted); }
+.icard .in > span { font: 500 12.5px/1.3 var(--f-zh); color: var(--muted); }
 .icard.left .in { left: auto; right: 48px; transform-origin: 100% 100%; }
 .icard.left .lead { left: auto; right: 4px; transform-origin: 100% 50%; transform: rotate(38deg) scaleX(0); }
 .icard.left.on .lead { transform: rotate(38deg) scaleX(1); }
@@ -904,10 +905,14 @@ html[data-lang="en"] .ichap h2 { font-family: var(--f-sans); letter-spacing: -0.
   .ihint { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ichap h2 span, .ichap p span { transform: none; opacity: 1; animation: none; }
+  .ichap h2 > span, .ichap p > span { transform: none; opacity: 1; animation: none; }
   .ihint svg, .ihint .flow { animation: none; }
 }
-/* 注音模式：字上面多一排注音，手機上標題縮一號，不然最後一個字會掉到下一行 */
+/* 注音模式：每個字右邊多一排注音，標題比較寬：縮一號、可用寬度放寬，不然最後一個字會掉到下一行 */
+@media (min-width: 701px) {
+  html[data-lang="zy"] .ichap { max-width: min(640px, 52vw); }
+  html[data-lang="zy"] .ichap h2 { font-size: clamp(26px, 2.9vw, 40px); }
+}
 @media (max-width: 700px) {
   html[data-lang="zy"] .icopy h1 { font-size: clamp(26px, 7.4vw, 36px); }
   html[data-lang="zy"] .ichap h2 { font-size: clamp(22px, 6vw, 32px); }

@@ -58,6 +58,7 @@ const SHOTS = [
     chap: [['天黑了，燈亮起來', 'Lights on after dark'], ['車頭燈、尾燈、高鐵整排的窗、飛機翅膀上一閃一閃的燈，每一組都可以自己打開。', 'Headlights, tail lights, the train’s rows of windows, the blinking lights on the wings: you can switch each set on yourself.']], cta: true},
 ];
 const LANES = {car: 0, bus: 4.2, train: 8.8, plane: 44};
+const FRONT = new THREE.Vector3(-1.5, 1.4, 2); // 最前面那一團（Model Y、公車的車頭）：最後兩鏡對焦在這裡
 // 飛機往後挪：機頭停在高鐵第二節後方（和其他車一樣對齊起跑線的話，最後一鏡機頭會在畫面外）
 const OFFX = {plane: -26};
 // 每一台什麼時候用粒子聚出來（第幾個鏡頭、那個鏡頭開始後幾秒）：點聚攏、再一道光從車頭掃到車尾變成實體
@@ -909,14 +910,16 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
     rim.target.position.copy(tgt);
     // 景深：焦點在鏡頭看的地方；點還散著時整團失焦，聚好就對焦清楚
     const fd = camera.position.distanceTo(tgt);
-    bokeh.uniforms.focus.value = fd;
+    // 最後兩個鏡頭：焦點對在最前面的 Model Y 和公車車頭，越往後越糊（高鐵後段、飛機）
+    const fdB = si >= 5 ? camera.position.distanceTo(FRONT) : fd;
+    bokeh.uniforms.focus.value = fdB;
     for (const id in V) {
       const PU = V[id].PU;
       PU.uFocus.value = fd * (1 + PU.uScatter.value * 1.2);
       PU.uAperture.value = 0.3 + 1.1 * PU.uScatter.value;
     }
-    bokeh.uniforms.aperture.value = (0.0093 / dist) * (wide ? 0.6 : 1); // 離焦點 ±70% 的距離才糊到上限
-    bokeh.uniforms.maxblur.value = si >= 5 ? 0.014 : 0.0065; // 最後兩個鏡頭：高鐵後半段明顯糊掉
+    bokeh.uniforms.aperture.value = si >= 5 ? 0.006 / fdB : (0.0093 / dist) * (wide ? 0.6 : 1); // 離焦點 ±70% 的距離才糊到上限；最後兩鏡往後慢慢糊
+    bokeh.uniforms.maxblur.value = si >= 5 ? 0.012 : 0.0065;
     // 點沒有寫進深度，後製的景深會把它們當成背景一起糊掉：有點在聚的時候先關掉後製的；第 5 個鏡頭是遠景，也關掉省效能
     const anyPts = Object.values(V).some((o) => o.pts.visible);
     bokK += ((!anyPts && !wide ? 1 : 0) - bokK) * (1 - Math.exp(-dt * 2.5));
