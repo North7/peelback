@@ -27,6 +27,7 @@
 - 飛機機翼、尾翼、舵面、機頭機尾外殼：“A350 V4” by Newbie99999993，Sketchfab，CC BY 4.0（機身中段照它量的尺寸用程式畫）
 - 飛機引擎：“Roll Royce Trent XWB Engine” by hakai315，Sketchfab，CC BY 4.0
 - 飛機起落架：“A350-1000 Landing Gear” by N.S STUDIOS，Sketchfab，CC BY 4.0
+- 高鐵 700T 車頭、客車廂（外殼、轉向架、車廂內裝、駕駛室）：“THSR 700T / Interior (Locomotive 01)”、“Taiwan HSR700T / Interior (Cabin 02)” by Basic Hsu（Hsu.Pei.Ge），Sketchfab，CC BY 4.0（照實車尺寸校正；座位照高鐵官網座位圖另外排）
 - 公車、飛機：用程式自己畫的
 
 原始下載檔不在這個倉庫（`ref/` 只留在本機）；`car/sk/` 是拆成零件、壓縮過的版本（`tools/sk_export.py`、`tools/sk_parts.py`）。

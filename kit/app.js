@@ -411,6 +411,11 @@ ${
     view.want = null;
     S.lastInput = performance.now();
   });
+  // 很長的車（火車）：框一層、一個零件、標名牌時，只框最前面 C.frameLen 那一段（不然整列 300 公尺塞進畫面，什麼都看不清楚）
+  const clipBox = (box) => {
+    if (C.frameLen && !box.isEmpty() && box.max.x - box.min.x > C.frameLen) box.min.x = box.max.x - C.frameLen;
+    return box;
+  };
   const HOME_DIR = new THREE.Vector3(...C.home).normalize();
   const EXPLODE_DIR = new THREE.Vector3(...C.explode).normalize();
   const view = {want: null, wantTarget: new THREE.Vector3()};
@@ -539,6 +544,7 @@ ${
         p.obj.rotation.x = rx;
         p.obj.updateMatrixWorld(true);
       }
+    clipBox(box);
     const c = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     const dir = camera.position.clone().sub(controls.target).normalize();
@@ -602,6 +608,7 @@ ${
   const flyTo = (id) => {
     const box = new THREE.Box3();
     for (const pc of model.parts[id].pieces) box.expandByObject(pc.obj);
+    clipBox(box);
     const c = box.getCenter(new THREE.Vector3());
     const r = box.getSize(new THREE.Vector3()).length() / 2;
     const dir = camera.position.clone().sub(controls.target).normalize();
@@ -1035,6 +1042,7 @@ ${
     if (S.selected && !S.labelsOn) {
       tmpBox.makeEmpty();
       for (const pc of model.parts[S.selected].pieces) tmpBox.expandByObject(pc.obj);
+      clipBox(tmpBox);
       tmpBox.getCenter(tmpV);
       tmpV.y = tmpBox.max.y;
       tmpV.project(camera);
@@ -1104,12 +1112,12 @@ ${
       let big = 0;
       for (const m of model.parts[id].meshes) {
         if (!m.visible || !m.parent?.visible) continue;
-        labelBox.makeEmpty().expandByObject(m);
+        clipBox(labelBox.makeEmpty().expandByObject(m));
         if (!labelBox.isEmpty()) big = Math.max(big, labelBox.getSize(labelC).length());
       }
       for (const m of model.parts[id].meshes) {
         if (!m.visible) continue;
-        labelBox.makeEmpty().expandByObject(m);
+        clipBox(labelBox.makeEmpty().expandByObject(m));
         if (labelBox.isEmpty() || labelBox.getSize(labelC).length() < big * 0.35) continue;
         labelBox.getCenter(labelC);
         const d = labelC.distanceToSquared(camPos);

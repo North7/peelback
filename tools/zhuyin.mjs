@@ -384,7 +384,7 @@ function toZhuyin(py) {
 }
 
 {
-  const FILES = ['kit', 'bus', 'plane', 'car'].flatMap((d) => fs.readdirSync(path.join(ROOT, d)).filter((f) => f.endsWith('.js') && f !== 'model.js').map((f) => `${d}/${f}`));
+  const FILES = ['kit', 'bus', 'plane', 'car', 'train'].flatMap((d) => fs.readdirSync(path.join(ROOT, d)).filter((f) => f.endsWith('.js') && f !== 'model.js').map((f) => `${d}/${f}`));
 // 收集原始碼裡所有中文字串（去掉註解）
 const CJK = /[㐀-鿿]+/g;
 const runs = new Set();
