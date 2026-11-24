@@ -52,13 +52,16 @@ const SHOTS = [
   {dur: 4.6, tr: 1.7, fit: ['car', 'bus'], az: 0.68, el: 0.26,
     chap: [['照真的大小做', 'Built to real size'], ['旁邊站一個 115 公分的小朋友。公車 12.2 公尺，差不多 11 個小朋友躺成一排。', 'Next to a 115 cm kid. The bus is 12.2 m, about 11 kids lying in a row.']]},
   // 不框整列高鐵：前景車子和小朋友，高鐵前幾節清楚、後面交給景深糊掉
-  {dur: 6, tr: 1.8, at: [-17, 3.6, 13], d: 60, atP: [-13, 4, 14], dP: 100, az: 0.92, el: 0.22,
+  {dur: 6, tr: 1.8, at: [-17, 3.6, 14.5], d: 62, atP: [-13, 4, 15.5], dP: 104, az: 0.92, el: 0.22,
     chap: [['四台車，四種大小', 'Four vehicles, four sizes'], ['最長的高鐵 304 公尺，12 節車廂一節一節都拆得開。', 'The high-speed train is 304 m long, and all 12 cars come apart.']]},
-  {dur: Infinity, tr: 2.4, at: [-19, 4, 14], d: 64, atP: [-17, 5, 19], dP: 118, az: 1.0, el: 0.19, night: true,
+  {dur: Infinity, tr: 2.4, at: [-19, 4, 15.5], d: 66, atP: [-17, 5, 20.5], dP: 122, az: 1.0, el: 0.19, night: true,
     chap: [['天黑了，燈亮起來', 'Lights on after dark'], ['車頭燈、尾燈、高鐵整排的窗、飛機翅膀上一閃一閃的燈，每一組都可以自己打開。', 'Headlights, tail lights, the train’s rows of windows, the blinking lights on the wings: you can switch each set on yourself.']], cta: true},
 ];
-const LANES = {car: 0, bus: 4.2, train: 8.8, plane: 44};
-const FRONT = new THREE.Vector3(-1.5, 1.4, 2); // 最前面那一團（Model Y、公車的車頭）：最後兩鏡對焦在這裡
+const LANES = {car: 0, bus: 4.2, train: 11.4, plane: 46}; // 公車和高鐵之間留 4 公尺左右
+// 最後兩鏡：從最前面那一團（Model Y、公車的車頭）到飛機機頭都要清楚，再往後（高鐵後段）才慢慢糊
+const FRONT = new THREE.Vector3(-1.5, 1.4, 2);
+const PLANE_NOSE = new THREE.Vector3(-26, 5, 46);
+const LDIR = new THREE.Vector3(0.5, 2.2, -0.8).normalize(); // 太陽的方向（固定）
 // 飛機往後挪：機頭停在高鐵第二節後方（和其他車一樣對齊起跑線的話，最後一鏡機頭會在畫面外）
 const OFFX = {plane: -26};
 // 每一台什麼時候用粒子聚出來（第幾個鏡頭、那個鏡頭開始後幾秒）：點聚攏、再一道光從車頭掃到車尾變成實體
@@ -780,7 +783,9 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
 
   // ---------- 每一格 ----------
   const tgt = new THREE.Vector3();
-  let copyShown = false, t = 0, bokK = 0;
+  let copyShown = false, t = 0, bokK = 0, shadowE = null;
+  // 太陽視角的座標軸：影子對齊像素格子用
+  const LF = LDIR.clone().negate(), LR = new THREE.Vector3().crossVectors(LF, new THREE.Vector3(0, 1, 0)).normalize(), LU = new THREE.Vector3().crossVectors(LR, LF);
   const frame = (dt) => {
     t += dt;
     // 時間軸：自動播放一直往前走；暫停時只走到這個鏡頭到位為止。走過下一段的開頭就換段（進度條跟著長）
@@ -897,12 +902,23 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
     if (portrait()) camera.setViewOffset(w, h, 0, wide ? -h * 0.01 : si >= 5 ? h * 0.02 : h * 0.12, w, h);
     else if (si >= 5) camera.setViewOffset(w, h, 0, h * 0.1, w, h);
     else camera.setViewOffset(w, h, wide ? 0 : -w * 0.14, wide ? h * 0.17 : si >= 2 ? h * 0.12 : h * 0.04, w, h);
-    const E = Math.max(6, dist * 0.45);
-    Object.assign(sun.shadow.camera, {left: -E, right: E, top: E, bottom: -E, near: 0.5, far: E * 8});
-    sun.shadow.camera.updateProjectionMatrix();
-    sun.position.set(tgt.x + E * 0.5, E * 2.2, tgt.z - E * 0.8);
-    sun.target.position.copy(tgt);
-    sun.shadow.bias = -0.0004 * Math.max(1, E / 8);
+    // 影子：範圍每個鏡頭固定（換鏡頭的途中用前後兩個比較大的那個），中心對齊影子的像素格子；
+    // 範圍和位置每格連續改變的話，影子的像素格子每格都在挪，地上的影子會一直閃
+    {
+      const Ei = (i) => Math.max(6, Math.exp(settle(i)[3]) * 0.45);
+      const inTr = shotT < SHOTS[si].tr;
+      const E = Math.ceil((inTr && si > 0 ? Math.max(Ei(si), Ei(si - 1)) : Ei(si)) / 2) * 2;
+      if (E !== shadowE) {
+        shadowE = E;
+        Object.assign(sun.shadow.camera, {left: -E, right: E, top: E, bottom: -E, near: 0.5, far: E * 8});
+        sun.shadow.camera.updateProjectionMatrix();
+        sun.shadow.bias = -0.0004 * Math.max(1, E / 8);
+      }
+      const texel = (2 * E) / sun.shadow.mapSize.x;
+      const a = Math.round(tgt.dot(LR) / texel) * texel, b2 = Math.round(tgt.dot(LU) / texel) * texel, c = tgt.dot(LF);
+      sun.target.position.set(0, 0, 0).addScaledVector(LR, a).addScaledVector(LU, b2).addScaledVector(LF, c);
+      sun.position.copy(sun.target.position).addScaledVector(LDIR, E * 2.4);
+    }
     groundMat.uniforms.uC.value.set(tgt.x, tgt.z);
     groundMat.uniforms.uR.value.set(dist * 0.35, dist * 1.3);
     const ra = t * 0.15;
@@ -911,14 +927,20 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
     // 景深：焦點在鏡頭看的地方；點還散著時整團失焦，聚好就對焦清楚
     const fd = camera.position.distanceTo(tgt);
     // 最後兩個鏡頭：焦點對在最前面的 Model Y 和公車車頭，越往後越糊（高鐵後段、飛機）
-    const fdB = si >= 5 ? camera.position.distanceTo(FRONT) : fd;
+    let fdB = fd, nearD = 0, farD = 0;
+    if (si >= 5) {
+      nearD = camera.position.distanceTo(FRONT);
+      farD = camera.position.distanceTo(PLANE_NOSE);
+      fdB = (nearD + farD) / 2;
+    }
     bokeh.uniforms.focus.value = fdB;
     for (const id in V) {
       const PU = V[id].PU;
       PU.uFocus.value = fd * (1 + PU.uScatter.value * 1.2);
       PU.uAperture.value = 0.3 + 1.1 * PU.uScatter.value;
     }
-    bokeh.uniforms.aperture.value = si >= 5 ? 0.006 / fdB : (0.0093 / dist) * (wide ? 0.6 : 1); // 離焦點 ±70% 的距離才糊到上限；最後兩鏡往後慢慢糊
+    // 一般：離焦點 ±70% 的距離才糊到上限。最後兩鏡：焦點在前面的車和飛機機頭中間，這一段幾乎不糊（邊上最多 0.0012），再往後才慢慢糊
+    bokeh.uniforms.aperture.value = si >= 5 ? 0.0012 / Math.max(4, (farD - nearD) / 2) : (0.0093 / dist) * (wide ? 0.6 : 1);
     bokeh.uniforms.maxblur.value = si >= 5 ? 0.012 : 0.0065;
     // 點沒有寫進深度，後製的景深會把它們當成背景一起糊掉：有點在聚的時候先關掉後製的；第 5 個鏡頭是遠景，也關掉省效能
     const anyPts = Object.values(V).some((o) => o.pts.visible);
