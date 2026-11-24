@@ -30,12 +30,14 @@ const SHOTS = [
   {dur: 4.6, tr: 1.7, fit: ['car', 'bus'], az: 0.68, el: 0.26,
     chap: ['照真的大小做', '旁邊站一個 115 公分的小朋友。公車 12.2 公尺，差不多 11 個小朋友躺成一排。']},
   // 不框整列高鐵：前景車子和小朋友，高鐵前幾節清楚、後面交給景深糊掉
-  {dur: 6, tr: 1.8, at: [-14, 2.6, 9], d: 44, atP: [-7, 2.4, 5], dP: 64, az: 1.02, el: 0.17,
+  {dur: 6, tr: 1.8, at: [-17, 3.6, 13], d: 60, atP: [-13, 4, 14], dP: 100, az: 0.92, el: 0.22,
     chap: ['四台車，四種大小', '最長的高鐵 304 公尺，12 節車廂一節一節都拆得開。']},
-  {dur: Infinity, tr: 2.4, at: [-17, 3.2, 12], d: 52, atP: [-8, 2.8, 6], dP: 68, az: 1.16, el: 0.13, night: true,
+  {dur: Infinity, tr: 2.4, at: [-19, 4, 14], d: 64, atP: [-17, 5, 19], dP: 118, az: 1.0, el: 0.19, night: true,
     chap: ['天黑了，燈亮起來', '車頭燈、尾燈、高鐵整排的窗、飛機翅膀上一閃一閃的燈，每一組都可以自己打開。'], cta: true},
 ];
-const LANES = {car: 0, bus: 4.2, train: 8.8, plane: 46};
+const LANES = {car: 0, bus: 4.2, train: 8.8, plane: 44};
+// 飛機往後挪：機頭停在高鐵第二節後方（和其他車一樣對齊起跑線的話，最後一鏡機頭會在畫面外）
+const OFFX = {plane: -26};
 // 每一台什麼時候用粒子聚出來（第幾個鏡頭、那個鏡頭開始後幾秒）：點聚攏、再一道光從車頭掃到車尾變成實體
 const APPEAR = {
   car: {shot: 0, gather: [0.2, 2.6], sweep: [3.0, 1.9], n: 64000, spread: 'center', k: 16},
@@ -66,7 +68,7 @@ const easeIO = (x) => ((x = clamp01(x)) < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 
 
 const PVERT = `
 attribute vec4 aRnd;
-uniform float uScatter; uniform float uSweep; uniform float uTime; uniform float uFocus; uniform float uAperture; uniform float uSize; uniform float uPR; uniform vec3 uCenter; uniform float uSpread; uniform float uK;
+uniform float uScatter; uniform float uSweep; uniform float uTime; uniform float uFocus; uniform float uAperture; uniform float uSize; uniform float uPR; uniform vec3 uCenter; uniform float uSpread; uniform float uK; uniform float uStart;
 varying float vA; varying float vSoft; varying float vHi;
 void main(){
   vec3 p = position;
@@ -85,7 +87,7 @@ void main(){
   float gone = smoothstep(uSweep - 0.12, uSweep + 0.02, position.x);
   vA = (1.0 - gone) / (1.0 + c * c * 60.0);
   vSoft = c;
-  vHi = (1.0 - smoothstep(0.0, 0.45 + uSpread * 0.2, uSweep - position.x)) * step(position.x, uSweep) * step(uSweep, 0.2);
+  vHi = (1.0 - smoothstep(0.0, 0.45 + uSpread * 0.2, uSweep - position.x)) * step(position.x, uSweep) * step(uSweep, uStart - 0.05);
 }`;
 const PFRAG = `
 uniform vec3 uInk; uniform vec3 uAcc; uniform float uAlpha;
@@ -209,7 +211,7 @@ export default async function run(stage, ctx) {
     v.model.track?.removeFromParent();
     root.updateMatrixWorld(true);
     const b = new THREE.Box3().setFromObject(root);
-    root.position.x -= b.max.x;
+    root.position.x += (OFFX[id] || 0) - b.max.x;
     root.position.z += LANES[id] - (b.min.z + b.max.z) / 2;
     root.position.y -= b.min.y;
     scene.add(root);
@@ -235,7 +237,7 @@ export default async function run(stage, ctx) {
     g.setAttribute('aRnd', new THREE.BufferAttribute(new Float32Array(n * 4).map(() => Math.random()), 4));
     g.boundingSphere = boxes[id].getBoundingSphere(new THREE.Sphere());
     g.boundingSphere.radius += 30;
-    const PU = {uScatter: {value: 1}, uSweep: {value: 0.3}, uTime: {value: 0}, uFocus: {value: 8}, uAperture: {value: 1.4}, uSize: {value: (isPhone() ? 1.5 : 1.3) * (A.size || 1)}, uPR: {value: renderer.getPixelRatio()}, uCenter: {value: boxes[id].getCenter(new THREE.Vector3())}, uSpread: {value: A.spread === 'center' ? -1 : A.spread}, uK: {value: A.k}, uInk: {value: new THREE.Color()}, uAcc: {value: new THREE.Color()}, uAlpha: {value: 0.4}};
+    const PU = {uScatter: {value: 1}, uSweep: {value: 0.3}, uTime: {value: 0}, uFocus: {value: 8}, uAperture: {value: 1.4}, uSize: {value: (isPhone() ? 1.5 : 1.3) * (A.size || 1)}, uPR: {value: renderer.getPixelRatio()}, uCenter: {value: boxes[id].getCenter(new THREE.Vector3())}, uSpread: {value: A.spread === 'center' ? -1 : A.spread}, uK: {value: A.k}, uStart: {value: boxes[id].max.x + 0.25}, uInk: {value: new THREE.Color()}, uAcc: {value: new THREE.Color()}, uAlpha: {value: 0.4}};
     const pts = new THREE.Points(g, new THREE.ShaderMaterial({uniforms: PU, vertexShader: PVERT, fragmentShader: PFRAG, transparent: true, depthWrite: false}));
     pts.renderOrder = 2;
     pts.visible = false;
@@ -603,12 +605,12 @@ export default async function run(stage, ctx) {
     for (const id in V) {
       const A = APPEAR[id], o = V[id];
       const lt = filmT - START[A.shot];
-      const minX = boxes[id].min.x;
+      const minX = boxes[id].min.x, x0 = boxes[id].max.x + 0.25; // 從這台的車頭掃到車尾
       let sc = 0, sw = minX - 1;
-      if (si < A.shot || lt < 0) (sc = 1), (sw = 0.25);
+      if (si < A.shot || lt < 0) (sc = 1), (sw = x0);
       else if (!RM.matches) {
         sc = 1 - ease((lt - A.gather[0]) / A.gather[1]);
-        sw = THREE.MathUtils.lerp(0.25, minX - 0.2, smooth((lt - A.sweep[0]) / A.sweep[1]));
+        sw = THREE.MathUtils.lerp(x0, minX - 0.2, smooth((lt - A.sweep[0]) / A.sweep[1]));
       }
       const before = si < A.shot;
       o.PU.uScatter.value = sc;
@@ -616,14 +618,14 @@ export default async function run(stage, ctx) {
       o.PU.uTime.value = t;
       o.pts.visible = !before && sw > minX - 0.1;
       o.plane.constant = -sw;
-      const show = !before && sw < 0.2;
+      const show = !before && sw < x0 - 0.05;
       if (show !== o.shown) {
         o.shown = show;
         for (const m of o.meshes) m.visible = show;
       }
     }
     const carSw = V.car.PU.uSweep.value;
-    sweepG.visible = si === 0 && carSw < 0.2 && carSw > boxes.car.min.x - 0.15;
+    sweepG.visible = si === 0 && carSw < boxes.car.max.x + 0.2 && carSw > boxes.car.min.x - 0.15;
     sweepG.position.x = carSw;
     // Model Y 拆開：每塊一個彈簧（和網站同一組參數），照順序一層一層走
     for (const p of model.pieces) {
@@ -734,7 +736,7 @@ export default async function run(stage, ctx) {
       const on = si === 5 && !portrait() && V[key].shown && V[key].PU.uSweep.value < boxes[key].min.x;
       el2.classList.toggle('on', on);
       if (!on) continue;
-      const p = key === 'plane' ? new THREE.Vector3(-INFO.plane.len * 0.45, 19, LANES.plane) : new THREE.Vector3(-32, 4.8, LANES.train);
+      const p = key === 'plane' ? new THREE.Vector3(OFFX.plane - INFO.plane.len * 0.45, 19, LANES.plane) : new THREE.Vector3(-32, 4.8, LANES.train);
       const s = toScreen(p, camera, canvas);
       el2.style.transform = `translate(${s.x}px, ${s.y}px) translate(-50%, -100%)`;
     }
