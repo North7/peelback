@@ -76,9 +76,10 @@ obs = load('battery', 0.15)
 allp = np.concatenate([np.array([list(o.matrix_world @ v.co) for v in o.data.vertices]) for o in obs])
 bmn, bmx = allp.min(0), allp.max(0)
 def bt(p):
-    x = -1.15 + (p[:, 0] - bmn[0]) / (bmx[0] - bmn[0]) * 2.17
-    z = -0.75 + (p[:, 1] - bmn[1]) / (bmx[1] - bmn[1]) * 1.5
-    y = 0.165 + (p[:, 2] - bmn[2]) * 0.62
+    # 照特斯拉緊急救援手冊的底盤圖按軸距量：前緣在前軸後 0.35 m、後緣在後軸前 0.45 m，寬約 1.47 m，厚約 0.14 m，底面離地 0.167 m（空車離地間隙）
+    x = (AXR + 0.45) + (p[:, 0] - bmn[0]) / (bmx[0] - bmn[0]) * ((AXF - 0.35) - (AXR + 0.45))
+    z = -0.735 + (p[:, 1] - bmn[1]) / (bmx[1] - bmn[1]) * 1.47
+    y = 0.167 + (p[:, 2] - bmn[2]) / (bmx[2] - bmn[2]) * 0.14
     return np.stack([x, y, z], -1)
 for o in obs:
     for co, T, mname, col in comps(o):

@@ -539,14 +539,15 @@ export function buildCar() {
     const calM = mat.plastic('#3b3e43', 0.4);
     for (const ax of [AX_F, AX_R])
       for (const s of [-1, 1]) {
-        const disc = mesh(cylZ(0.17, 0.028, ax, R, s * (TRACK - 0.1), 32), discM);
+        const disc = mesh(cylZ(ax > 0 ? 0.1775 : 0.1675, 0.028, ax, R, s * (TRACK - 0.1), 32), discM); // 碟盤直徑：前 355 mm、後 335 mm（車主手冊）
         const cal = mesh(span([ax + 0.08, R + 0.05, s * (TRACK - 0.1) - 0.04], [ax + 0.17, R + 0.17, s * (TRACK - 0.1) + 0.04], 0.02), calM);
         piece('brakes', [disc, cal], [ax > 0 ? 0.15 : -0.15, 0.1, s * 0.45], 4);
       }
     // 避震器、車架（下載的底盤模型）：前、後各一組
     piece('suspension', inner.suspensionF || [], [0.45, 0.5, 0], 4);
     piece('suspension', inner.suspensionR || [], [-0.45, 0.5, 0], 4);
-    piece('casting', inner.castingF || [], [0.6, 0.2, 0], 4);
+    // 新款只有後底盤是一體壓鑄；前面是沖壓的鋼樑焊起來的（特斯拉工程副總受訪）
+    piece('frame', inner.castingF || [], [0.6, 0.2, 0], 4);
     piece('casting', inner.castingR || [], [-0.6, 0.2, 0], 4);
   }
 

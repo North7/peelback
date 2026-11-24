@@ -28,13 +28,13 @@ export default {
       ${row(['電池', 'Battery'], `${HP(['大約', 'About'])} <b>${SPEC.battery}</b> ${HP(['度電', 'kWh'])}`, ['差不多可以把 5000 支手機充飽', 'Enough to charge about 5,000 phones'])}
       ${row(['馬達', 'Motors'], `<b>2</b>`, ['前面一個、後面一個，四輪都出力', 'One front, one rear: all-wheel drive'])}
     </dl>
-    <p class="src">${HP(['尺寸和電池容量取自第三方規格資料庫，螢幕大小和台灣販售的版本取自新聞報導。底盤用的是 Model X、電池是 Model S 的模型，縮放到 Model Y 的大小，不是原廠圖。', 'Size and battery figures are from third-party spec databases, screen sizes and the Taiwan version from news reports. The chassis is a Model X model and the battery a Model S model, scaled to Model Y size; not factory drawings.'])}</p>
+    <p class="src">${HP(['尺寸、馬達、懸吊、前後車廂容量取自特斯拉台灣版車主手冊；電池在地板下的位置照特斯拉緊急救援手冊，大小是照手冊的圖按軸距量的（特斯拉沒有公布）；電池容量是報導的數字。底盤和電池的外形借用 Model X 底盤、Model S 電池的模型，照這些位置和大小擺。', 'Size, motors, suspension and trunk space are from Tesla’s Taiwan owner’s manual. The battery’s place under the floor follows Tesla’s emergency response guide, and its size is measured from the guide’s drawing against the wheelbase (Tesla doesn’t publish it); battery capacity is from news reports. The chassis and battery shapes borrow Model X chassis and Model S battery models, placed to match.'])}</p>
     <p class="src credit">3D：“2025 Tesla Model Y” by BloxBloger（CC BY-NC 4.0）・“Tesla Model X chassis” by Michael Zhang・“Tesla Batterie Pack V2” by AniMtrX・“Tesla Front / Rear Small Drive Unit” by tangentinnovationgroup（CC BY 4.0）・Sketchfab</p>`;
   },
   LAYERS: [
     {name: ['車子外面', 'Outside'], ids: ['front', 'hood', 'windshield', 'roof', 'doors', 'mirrors', 'liftgate', 'rear', 'body']},
     {name: ['車子裡面', 'Inside'], ids: ['floor', 'seats', 'dash', 'screen', 'rearScreen', 'steering', 'frunk', 'trunk']},
-    {name: ['底盤', 'Chassis'], ids: ['wheels', 'brakes', 'suspension', 'casting']},
+    {name: ['底盤', 'Chassis'], ids: ['wheels', 'brakes', 'suspension', 'casting', 'frame']},
     {name: ['電池和馬達', 'Battery and motors'], ids: ['battery', 'frontMotor', 'rearMotor', 'heatpump', 'chargePort']},
   ],
   STACK: [
@@ -45,7 +45,7 @@ export default {
     {name: ['電池', 'Battery'], say: ['第四層，電池和馬達。', 'Layer four: the battery and motors.'], icon: '<rect x="3" y="7" width="16" height="10" rx="2"/><path d="M19 10.5h2v3h-2"/><path d="M11.5 8.8l-2.3 3.6h3.4l-2.2 3.8"/>'},
   ],
   LABEL_ORDER: ['battery', 'frontMotor', 'rearMotor', 'screen', 'seats', 'wheels', 'front', 'roof', 'doors', 'hood', 'liftgate', 'frunk', 'trunk', 'steering', 'rearScreen', 'dash',
-    'casting', 'brakes', 'suspension', 'chargePort', 'heatpump', 'mirrors', 'windshield', 'rear', 'body', 'floor'],
+    'casting', 'frame', 'brakes', 'suspension', 'chargePort', 'heatpump', 'mirrors', 'windshield', 'rear', 'body', 'floor'],
   XRAY_K: {front: 1, hood: 1, windshield: 1, roof: 1, doors: 1, mirrors: 1, liftgate: 1, rear: 1, body: 1, floor: 0.6},
   sun: {pos: [6, 14, -8], ext: 9},
   ao: 0.22,

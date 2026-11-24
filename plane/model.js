@@ -20,12 +20,13 @@ export const CY = MEAS.CY; // 機身中心離地（量的：5.92）
 const RZ = 3.07;
 export const FLOOR_Y = CY - 0.95; // 客艙地板
 const CARGO_Y = CY - 2.66;
-export const XMG = 0.77 + SK_DX; // 主起落架（中間那一排輪子）
-const XNG = 32.6 + SK_DX; // 鼻輪
-const MAIN_Z = 5.45;
+// 起落架、引擎位置照 Airbus ACAP（A350 Aircraft Characteristics，FIGURE 2-2-0、7-2-0）
+export const XMG = NOSE_X - 37.11; // 主起落架中軸離機頭 37.11 m
+const XNG = NOSE_X - 4.63; // 鼻輪離機頭 4.63 m
+const MAIN_Z = 10.734 / 2; // 主輪距 10.734 m
 export const R_MAIN = 0.68; // 主輪半徑（1400 mm 輪胎）
 export const R_NOSE = 0.53;
-const ENG = {x: 9.83 + SK_DX, y: 3.41, z: 10.53}; // 風扇中心
+const ENG = {x: NOSE_X - 25.78 - (5.23 - 3.19) * 0.761, y: 0.76 + (4.145 - 1.49) * 0.761, z: 10.5}; // 風扇中心（唇緣離機頭 25.78 m、短艙離地 0.76 m）
 
 // ---------- 下載的模型 ----------
 const SK_BIN = unzlibSync(SK_ZIP);
@@ -67,7 +68,7 @@ function hingeOf(meshes, along, rear = false) {
   const span = hi - lo;
   return [pick(lo, lo + span * 0.08), pick(hi - span * 0.08, hi)];
 }
-const DOORS = [8.2, 27.2, 48.0, 64.0]; // 機門中心離機頭的距離（照片量的）
+const DOORS = [6.82, 23.3, 42.38, 59.53]; // 機門中心離機頭的距離（Airbus ACAP FIGURE 2-7-0）
 const xAt = (t) => NOSE_X - t;
 
 const COL = {
@@ -199,6 +200,9 @@ const thetaAtY = (t, y, side) => {
   const a = Math.acos(c);
   return side > 0 ? a : Math.PI * 2 - a;
 };
+const SEAM_N = 5.9; // 1 號門（中心 6.82 m）整片都在機身上，不跨接口
+const SEAM_T = 66;
+const smooth01 = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 /** 下載的機頭、機尾外殼：照「離機頭多遠、繞機身幾度」算 uv，和程式畫的機身用同一張塗裝貼圖 */
 function skinGeo(g) {
   const geo = skGeo(g);
@@ -212,8 +216,16 @@ function skinGeo(g) {
     else if (th < 0) th = 0;
     uv[i * 2] = t / LEN;
     uv[i * 2 + 1] = th / (Math.PI * 2);
+    // 接口：離機頭 6.4 m、66 m 是外殼和程式畫的機身接起來的地方。最後 1 公尺慢慢貼到程式畫的機身表面上，
+    // 形狀和光影才會接得一模一樣，看不出一圈
+    const k = Math.max(smooth01((t - (SEAM_N - 1.0)) / 1.0) * (t <= SEAM_N + 0.01 ? 1 : 0), smooth01((SEAM_T + 1.0 - t) / 1.0) * (t >= SEAM_T - 0.01 ? 1 : 0));
+    if (k > 0) {
+      const q = fusePoint(t, th);
+      p.setXYZ(i, p.getX(i) + (q.x - p.getX(i)) * k, p.getY(i) + (q.y - p.getY(i)) * k, p.getZ(i) + (q.z - p.getZ(i)) * k);
+    }
   }
   geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.computeVertexNormals();
   return geo;
 }
 const T_SAMPLES = (() => {
@@ -538,8 +550,8 @@ function fuseLivery(glowOnly = false) {
         g.stroke();
       }
     };
-    mask(0);
-    mask(H);
+    // 駕駛艙的黑色面罩改用下載模型的窗戶本身（照真的 A350 外形），這裡不再畫，不然會疊成兩層
+    void mask;
   }, {flip: false});
 }
 
@@ -642,20 +654,55 @@ export function buildPlane() {
 
   // ================= 第一層：機身外殼 =================
   const deg = Math.PI / 180;
-  const T_NOSE = 6.4;
-  const T_TAIL = 66;
+  const T_NOSE = SEAM_N;
+  const T_TAIL = SEAM_T;
   {
     // 機頭：含駕駛艙窗戶，往前拆
     const out = [...skGroups('noseSkin').map((g) => mesh(skinGeo(g), liveryM)), mesh(fuseGeo(0.6, T_NOSE, 0, Math.PI * 2, {grow: -0.12, inside: true}), creamM)];
-    // 雨刷：收在擋風玻璃下緣
-    for (const s2 of [-1, 1]) {
-      const a = fusePoint(2.65, s2 * 0.12, 0.04);
-      const b = fusePoint(3.15, s2 * 0.62, 0.04);
-      out.push(mesh(rod([a.x, a.y, a.z], [b.x, b.y, b.z], 0.025, 6), mat.dark()));
-    }
     // 駕駛艙窗戶：下載的模型（A350 招牌的「浣熊眼罩」黑框窗）
-    const glassM = new THREE.MeshPhysicalMaterial({color: '#0d1318', roughness: 0.08, metalness: 0.2, clearcoat: 1, envMapIntensity: 1.1});
-    for (const g of skGroups('nose')) out.push(mesh(skGeo(g), glassM));
+    const glassM = new THREE.MeshPhysicalMaterial({color: '#0d1318', roughness: 0.08, metalness: 0.2, clearcoat: 1, envMapIntensity: 1.1, side: THREE.DoubleSide});
+    const glassMs = skGroups('nose').map((g) => mesh(skGeo(g), glassM));
+    out.push(...glassMs);
+    // 窗框：真的 A350 駕駛艙是 6 片窗（正前方 2 片擋風玻璃、兩側各 2 片側窗），中間用深灰色窗框隔開。
+    // 從機身中心往外打線找到玻璃表面，沿著機身方向拉一條細帶貼在玻璃上
+    {
+      const rc = new THREE.Raycaster();
+      const frames = [];
+      for (const thDeg of [0, 31, -31, 60, -60]) {
+        const th = (thDeg * Math.PI) / 180;
+        const hits = [];
+        for (let t = 1.4; t <= 4.2; t += 0.08) {
+          const o = new THREE.Vector3(NOSE_X - t, CY + fDy(t), 0);
+          const d = new THREE.Vector3(0, Math.cos(th), Math.sin(th));
+          rc.set(o, d);
+          const h = rc.intersectObjects(glassMs, false).filter((x) => x.distance > 0.3).pop();
+          if (h) hits.push({p: h.point.clone(), n: h.face.normal.clone()});
+        }
+        if (hits.length < 2) continue;
+        const pos = [];
+        const idx = [];
+        hits.forEach(({p, n}, i) => {
+          if (n.dot(new THREE.Vector3(0, Math.cos(th), Math.sin(th))) < 0) n.negate();
+          const along = new THREE.Vector3(1, 0, 0);
+          const side = new THREE.Vector3().crossVectors(n, along).normalize().multiplyScalar(0.035);
+          const q = p.clone().addScaledVector(n, 0.012);
+          pos.push(...q.clone().add(side).toArray(), ...q.clone().sub(side).toArray());
+          if (i) idx.push(i * 2 - 2, i * 2 - 1, i * 2, i * 2 - 1, i * 2 + 1, i * 2);
+        });
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        g.setIndex(idx);
+        g.computeVertexNormals();
+        frames.push(g);
+      }
+      if (frames.length) {
+        const fm = mat.plastic('#3a3e43', 0.45);
+        fm.side = THREE.DoubleSide;
+        out.push(mesh(merge(frames), fm));
+      }
+    }
+    // 接口蓋一圈 4 公分的細帶（同樣的塗裝，凸出 4 mm），把兩塊網格接縫的細縫蓋住；真的飛機這裡也有一圈蒙皮接縫
+    out.push(mesh(fuseGeo(SEAM_N - 0.02, SEAM_N + 0.02, 0, Math.PI * 2, {grow: 0.004}), liveryM));
     piece('nose', out, [11, 1.5, 0], 1);
     // 空速管：機頭兩側各兩根 L 形的小管子，量飛機飛多快
     {
@@ -772,6 +819,7 @@ export function buildPlane() {
     const out = [...skGroups('tailSkin').map((g) => mesh(skinGeo(g), liveryM)), mesh(fuseGeo(T_TAIL, LEN - 0.6, 0, Math.PI * 2, {grow: -0.1, inside: true}), creamM)];
     // 尾巴最尖端：輔助動力的排氣口（下載的模型）、白色的尾燈
     for (const g of skGroups('tailcone')) out.push(mesh(skGeo(g), mat.chrome()));
+    out.push(mesh(fuseGeo(SEAM_T - 0.02, SEAM_T + 0.02, 0, Math.PI * 2, {grow: 0.004}), liveryM));
     const tipY = CY + fDy(LEN - 0.3) + fRy(LEN - 0.3) * 0.9;
     out.push(mesh(span([xAt(LEN - 0.35), tipY - 0.02, -0.07], [xAt(LEN - 0.2), tipY + 0.1, 0.07], 0.03), mat.lamp('#ffffff', 0.04, 'nav', 3)));
     piece('tailcone', out, [-11, 2.5, 0], 1);
@@ -1079,46 +1127,83 @@ export function buildPlane() {
       })(),
       span([-1.0, 0, -0.35], [-0.5, 0.65, 0.35], 0.04),
     ]);
-    instanced(suite, mat.plastic('#c8b08a', 0.5), [[xAt(10.6), -2.0], [xAt(10.6), -0.55], [xAt(10.6), 0.55], [xAt(10.6), 2.0]], 'first', [0, 6, 0]);
+    // 位置照 aeroLOPA 的星宇 A350-1000 座位圖，用 Airbus ACAP 的四個機門位置對齊量出來（離機頭幾公尺）
+    instanced(suite, mat.plastic('#c8b08a', 0.5), [[xAt(9.59), -2.0], [xAt(9.59), -0.55], [xAt(9.59), 0.55], [xAt(9.59), 2.0]], 'first', [0, 6, 0]);
     // 商務艙：40 個（1-2-1，10 排）
     const pod = merge([seatGeo(0.62, 0.66, 0.95), span([-0.8, 0, -0.38], [-0.7, 1.05, 0.38], 0.03), span([-0.75, 0, 0.32], [0.45, 0.72, 0.38], 0.03)]);
     const biz = [];
-    for (let r = 0; r < 10; r++) for (const z of [-2.0, -0.55, 0.55, 2.0]) biz.push([xAt(12.8 + r * 1.3), z]);
+    for (let r = 0; r < 10; r++) for (const z of [-2.0, -0.55, 0.55, 2.0]) biz.push([xAt(10.89 + r * 1.125), z]); // 第 2–11 排，間距 44 吋
     instanced(pod, mat.plastic('#8a6444', 0.55), biz, 'business', [0, 6.5, 0]);
     // 豪華經濟艙：36 個（2-4-2，最後一排只有中間 4 個）
     const pe = [];
-    for (let r = 0; r < 5; r++) for (const z of r < 4 ? [-2.25, -1.75, -0.75, -0.25, 0.25, 0.75, 1.75, 2.25] : [-0.75, -0.25, 0.25, 0.75]) pe.push([xAt(29.2 + r * 0.97), z]);
+    for (let r = 0; r < 5; r++) for (const z of r < 4 ? [-2.25, -1.75, -0.75, -0.25, 0.25, 0.75, 1.75, 2.25] : [-2.25, -1.75, 1.75, 2.25]) pe.push([xAt(26.2 + r * 1.03), z]); // 第 20–24 排，最後一排只有靠窗兩側
     instanced(seatGeo(0.48, 0.5, 0.82), mat.plastic('#6f5845', 0.6), pe, 'premium', [0, 7.5, 0]);
-    // 經濟艙：270 個（3-3-3，30 排，3 號門前後分兩段）
-    const zs = [-2.3, -1.84, -1.38, -0.46, 0, 0.46, 1.38, 1.84, 2.3];
+    // 經濟艙：270 個（3-3-3）。第 30 排只有中間 3 個；31–41 排；3 號門後第 50 排只有中間、51–53 排；
+    // 後段兩側第 55–69 排、中間第 54–68 排（中間的排號比兩側少一號），中間最後多一排第 69 排。機尾變窄，第 66 排以後兩側往內挪 10 公分
+    const L3 = [-2.3, -1.84, -1.38];
+    const C3 = [-0.46, 0, 0.46];
+    const R3 = [1.38, 1.84, 2.3];
     const ecGeo = seatGeo(0.44, 0.46, 0.78);
     const ecMat = mat.plastic('#4a3c33', 0.6);
-    let ecCount = 0;
-    for (const [t0, rows] of [[35, 13], [49.6, 17]]) {
-      const ec = [];
-      for (let r = 0; r < rows; r++) for (const z of zs) ec.push([xAt(t0 + r * 0.82), z]);
-      instanced(ecGeo, ecMat, ec, 'economy', [0, 8.5, 0]);
-      ecCount += parts.economy.count;
+    const ec = [];
+    const row = (t, zs) => zs.forEach((z) => ec.push([xAt(t), z]));
+    row(30.84, C3);
+    for (let r = 0; r < 11; r++) row(32.24 + r * 0.802, [...L3, ...C3, ...R3]);
+    row(42.87, C3);
+    for (const t of [43.69, 44.47, 45.25]) row(t, [...L3, ...C3, ...R3]);
+    for (let r = 0; r < 15; r++) {
+      const t = 46.05 + r * 0.8;
+      const k = t > 55.6 ? 0.1 : 0;
+      row(t, [...L3.map((z) => z + k), ...C3, ...R3.map((z) => z - k)]);
     }
+    row(58.08, C3);
+    instanced(ecGeo, ecMat, ec, 'economy', [0, 8.5, 0]);
+    const ecCount = parts.economy.count;
     parts.economy.count = ecCount;
   }
   {
-    // 駕駛艙：兩張椅子、儀表板、側邊的小搖桿
+    // 駕駛艙（A350）：6 片一樣的 15 吋螢幕（兩位駕駛前面各 2 片、中間上下各 1 片），兩側各一支側桿（沒有駕駛盤），
+    // 中間台座有油門桿和兩個鍵盤游標控制器，遮光板上的自動駕駛面板、頭頂的頂板
     const out = [];
+    const FL = CY - 1.0; // 駕駛艙地板；擋風玻璃下緣離機頭約 2 m，駕駛坐在 3.8 m，後面的隔間牆在 4.75 m（前面的廚房、廁所從 5.0 m 開始）
     const seat = merge([seatGeo(0.55, 0.55, 0.9)]);
     for (const z of [-0.55, 0.55]) {
-      const s = mesh(seat, mat.plastic('#2c2f33', 0.7));
-      s.position.set(xAt(4.9), CY - 1.25, z);
-      out.push(s);
+      const s2 = mesh(seat, mat.plastic('#2c2f33', 0.7));
+      s2.position.set(xAt(3.80), FL, z);
+      out.push(s2);
     }
-    out.push(mesh(span([xAt(3.75), CY - 1.25, -1.15], [xAt(3.15), CY - 0.35, 1.15], 0.08), mat.plastic('#2a2d31', 0.6)));
+    const panelM = mat.plastic('#2a2d31', 0.6);
+    // 主儀表板（往後斜）、遮光板
+    out.push(mesh(span([xAt(2.55), FL, -1.15], [xAt(2.20), FL + 1.05, 1.15], 0.06), panelM));
+    out.push(mesh(span([xAt(2.65), FL + 1.05, -1.1], [xAt(2.15), FL + 1.16, 1.1], 0.05), panelM));
+    out.push(mesh(span([xAt(2.67), FL + 1.08, -0.5], [xAt(2.64), FL + 1.14, 0.5], 0.01), mat.plastic('#121416', 0.4)));
     const scr = new THREE.MeshStandardMaterial({color: '#0f1b2b', emissive: '#2a6fd6', emissiveIntensity: 0.55, roughness: 0.3});
-    for (const z of [-0.85, -0.3, 0.3, 0.85]) {
-      const g = span([xAt(3.74), CY - 0.85, z - 0.22], [xAt(3.72), CY - 0.5, z + 0.22], 0.01);
+    const disp = [];
+    for (const z of [-1.0, -0.62, 0.62, 1.0]) disp.push(span([xAt(2.57), FL + 0.62, z - 0.16], [xAt(2.55), FL + 0.92, z + 0.16], 0.01));
+    disp.push(span([xAt(2.57), FL + 0.62, -0.16], [xAt(2.55), FL + 0.92, 0.16], 0.01));
+    out.push(mesh(merge(disp), scr));
+    // 中間台座：下面那片螢幕斜放在上面、兩支油門桿、兩個鍵盤游標控制器
+    out.push(mesh(span([xAt(4.20), FL, -0.22], [xAt(2.55), FL + 0.62, 0.22], 0.05), panelM));
+    {
+      const g = span([-0.15, -0.005, -0.16], [0.15, 0.005, 0.16], 0.005);
+      g.rotateZ(-0.35);
+      g.translate(xAt(2.85), FL + 0.6, 0);
       out.push(mesh(g, scr));
     }
-    for (const z of [-1.0, 1.0]) out.push(mesh(rod([xAt(4.75), CY - 0.85, z], [xAt(4.7), CY - 0.62, z], 0.025, 8), mat.dark()));
-    out.push(mesh(span([xAt(6.3), CY - 1.3, -1.4], [xAt(6.25), CY + 1.0, 1.4], 0.02), mat.plastic('#d9d4c8', 0.8)));
+    for (const z of [-0.07, 0.07]) out.push(mesh(rod([xAt(3.25), FL + 0.62, z], [xAt(3.15), FL + 0.8, z], 0.018, 8), mat.dark()));
+    for (const z of [-0.15, 0.15]) out.push(mesh(span([xAt(3.80), FL + 0.62, z - 0.06], [xAt(3.50), FL + 0.65, z + 0.06], 0.01), mat.plastic('#3a3e43', 0.5)));
+    // 兩側的側桿（機長左手、副駕駛右手）
+    for (const z of [-1.0, 1.0]) {
+      out.push(mesh(span([xAt(4.10), FL, z - 0.13], [xAt(3.20), FL + 0.62, z + 0.13], 0.04), panelM));
+      out.push(mesh(rod([xAt(3.50), FL + 0.62, z], [xAt(3.54), FL + 0.82, z], 0.02, 10), mat.dark()));
+    }
+    // 頭頂的頂板
+    {
+      const g = span([xAt(3.80), CY + 0.62, -0.45], [xAt(2.80), CY + 0.7, 0.45], 0.03);
+      out.push(mesh(g, mat.plastic('#5d6268', 0.55)));
+    }
+    // 駕駛艙後面的隔間牆（有門）
+    out.push(mesh(span([xAt(4.80), FL, -1.4], [xAt(4.75), CY + 1.0, 1.4], 0.02), mat.plastic('#d9d4c8', 0.8)));
     piece('cockpit', out, [9, 6, 0], 2);
   }
   {
@@ -1126,20 +1211,32 @@ export function buildPlane() {
     // 每個位置各自一塊，名牌和鏡頭才會指到真的東西（合成一塊的話中心會落在中間空的地方）
     const gMat = mat.plastic('#d6d8db', 0.45);
     const tMat = mat.metal();
-    for (const [t0, t1] of [[6.6, 7.6], [25.7, 26.6], [64.9, 66.0]]) {
-      const box = span([xAt(t1), FLOOR_Y, -1.3], [xAt(t0), FLOOR_Y + 2.0, 1.3], 0.05);
+    // [前, 後, 左 z, 右 z]：照座位圖量的（離機頭幾公尺）
+    const GALLEYS = [[5.0, 5.98, 0.4, 2.5], [7.06, 7.92, -0.9, 0.9], [21.62, 23.26, -0.9, 0.9], [24.32, 25.18, -0.9, 0.9], [57.93, 58.79, -2.4, -0.9], [57.93, 58.79, 0.9, 2.4], [58.73, 59.61, -0.9, 0.9], [60.4, 62.4, -1.1, 1.1]];
+    for (const [t0, t1, z0, z1] of GALLEYS) {
+      const box = span([xAt(t1), FLOOR_Y, z0], [xAt(t0), FLOOR_Y + 2.0, z1], 0.05);
       const trim = [];
-      for (let k = 0; k < 4; k++) for (const x of [xAt(t1) - 0.012, xAt(t0) + 0.012]) trim.push(span([x - 0.01, FLOOR_Y + 0.25 + k * 0.42, -1.2], [x + 0.01, FLOOR_Y + 0.29 + k * 0.42, 1.2], 0.004));
+      for (let k = 0; k < 4; k++) for (const x of [xAt(t1) - 0.012, xAt(t0) + 0.012]) trim.push(span([x - 0.01, FLOOR_Y + 0.25 + k * 0.42, z0 + 0.1], [x + 0.01, FLOOR_Y + 0.29 + k * 0.42, z1 - 0.1], 0.004));
       piece('galley', [mesh(box, gMat), mesh(merge(trim), tMat)], [0, 10, 0], 2);
     }
+    // 洗手間：全機 10 間（1 號門前左 1、2 號門前左右 2 和門後右 1、3 號門前中間 2 和左右 2、4 號門後左右 2）
     const lMat = mat.plastic('#f1f2f3', 0.4);
-    for (const group of [[[28.6, -2.0], [28.6, 2.0]], [[46.4, -1.95], [46.4, 1.95]], [[63.2, -0.5], [63.2, 0.5]]]) {
-      const l = group.map(([t, z]) => span([xAt(t + 0.45), FLOOR_Y, z - 0.45], [xAt(t - 0.45), FLOOR_Y + 2.0, z + 0.45], 0.06));
+    const LAVS = [
+      [[5.01, 5.97, -2.3, -0.8]],
+      [[21.72, 22.58, -2.4, -1.1], [21.72, 22.58, 1.1, 2.4], [24.17, 25.03, 1.1, 2.4]],
+      [[40.32, 41.78, -0.95, 0], [40.32, 41.78, 0, 0.95], [40.87, 41.63, -2.4, -1.4], [40.87, 41.63, 1.4, 2.4]],
+      [[60.38, 61.79, -2.0, -1.15], [60.38, 61.79, 1.15, 2.0]],
+    ];
+    for (const group of LAVS) {
+      const l = group.map(([t0, t1, z0, z1]) => span([xAt(t1), FLOOR_Y, z0 + 0.02], [xAt(t0), FLOOR_Y + 2.0, z1 - 0.02], 0.06));
       piece('lav', [mesh(merge(l), lMat)], [0, 10, 0], 2);
     }
+    // 衣櫃、隔板（1 號門後左右、2 號門後左、豪華經濟艙後面左右）
+    const cl = [[7.71, 8.31, -2.4, -1.3], [7.71, 8.31, 1.3, 2.4], [24.17, 25.28, -2.4, -1.1], [30.97, 31.46, -2.4, -1.3], [30.97, 31.46, 1.3, 2.4], [41.82, 42.04, -0.95, 0.95]];
+    piece('galley', [mesh(merge(cl.map(([t0, t1, z0, z1]) => span([xAt(t1), FLOOR_Y, z0], [xAt(t0), FLOOR_Y + 1.9, z1], 0.04))), gMat)], [0, 10, 0], 2);
     // 行李櫃：兩邊和中間
     const bMat = mat.plastic('#ece9e2', 0.45);
-    for (const [t0, t1] of [[9.2, 25.6], [29, 46], [49, 57.5]]) {
+    for (const [t0, t1] of [[8.4, 21.5], [25.6, 40.2], [42.3, 57.6]]) {
       const b = [];
       for (const s of [-1, 1]) b.push(span([xAt(t1), FLOOR_Y + 1.62, s * 1.75], [xAt(t0), FLOOR_Y + 2.05, s * 2.42], 0.06));
       b.push(span([xAt(t1), FLOOR_Y + 1.78, -0.62], [xAt(t0), FLOOR_Y + 2.12, 0.62], 0.06));
@@ -1165,7 +1262,8 @@ export function buildPlane() {
     const pair = merge([ld3, left]);
     const cMat = mat.plastic('#b9bec4', 0.45);
     let n = 0;
-    for (const [t0, rows] of [[11.2, 9], [48.2, 7]]) {
+    // 貨艙（ACAP FIGURE 2-6-0）：前貨艙約 7.9–27.9 m 放 24 個 LD3（12 排）、後貨艙約 39.6–55.7 m 放 20 個（10 排）
+    for (const [t0, rows] of [[8.8, 12], [40.4, 10]]) {
       const im = new THREE.InstancedMesh(pair, cMat, rows);
       const M = new THREE.Matrix4();
       for (let r = 0; r < rows; r++) {

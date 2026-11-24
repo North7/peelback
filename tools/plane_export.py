@@ -110,7 +110,7 @@ for s in st: s[3] = round(s[3] - CY, 3)
 print('NOSE_X', NOSE_X, 'TAIL_X', TAIL_X, 'CY', CY)
 for P, T in FUSE_COMPS:
     side = 'R' if P[:, 2].mean() > 0 else 'L'
-    Q, F = cut(P, T, NOSE_X - 6.4, True)
+    Q, F = cut(P, T, NOSE_X - 5.9, True)
     if len(F): add('noseSkin', 'skin', Q, F, side + '|skin')
     Q, F = cut(P, T, NOSE_X - 66.0, False)
     if len(F): add('tailSkin', 'skin', Q, F, side + '|skin')
@@ -188,8 +188,14 @@ json.dump({'NOSE_X': NOSE_X, 'CY': CY, 'STATIONS': st}, open(os.path.join(outdir
 
 # ================= 引擎：Trent XWB（組好的那一台，y > 7.5），換到 A350 的位置 =================
 obs = load(os.path.join(src, 'trent', 'scene.gltf'))
-S_E = 0.85
-X_FAN, Y_ENG, Z_ENG = 9.83, 3.41, 10.53
+# Airbus ACAP（A350 Aircraft Characteristics, FIGURE 2-2-0 / 2-3-0）：進氣口唇緣離機頭 25.78 m、引擎中心離機身中心 10.50 m、短艙最低點離地 0.76 m；
+# Trent XWB-97 風扇直徑 3.0 m（這個模型的風扇 3.94 → 縮 0.761）
+S_E = 0.761
+NOSE_REAL = 36.895                     # 這裡的機頭位置（LEN/2）
+LIP = 37.0588 - (NOSE_REAL - (NOSE_REAL - 25.78))  # 外殼座標裡的唇緣 x（外殼機頭在 37.0588）
+X_FAN = LIP - (5.23 - 3.19) * S_E
+Y_ENG = 0.76 + (4.145 - 1.49) * S_E
+Z_ENG = 10.50
 def eng_tf(co):
     return np.stack([X_FAN - (co[:, 0] + 3.19) * S_E, Y_ENG + (co[:, 2] - 4.145) * S_E, Z_ENG + (co[:, 1] - 10.70) * S_E], -1)
 def eng_kind(name):
@@ -217,7 +223,12 @@ for o in obs:
 
 # ================= 起落架（A350-1000）：主輪兩組、鼻輪一組 =================
 obs = load(os.path.join(src, 'gear', 'scene.gltf'))
-MAIN_X, MAIN_Z, NOSE_GX = 0.77 + 1.83, 5.45, 32.6 - 2.73
+# ACAP FIGURE 7-2-0：鼻輪離機頭 4.63 m、主輪中軸 37.11 m（軸距 32.48）、主輪距 10.734 m、主輪左右間距約 1.40–1.47 m（模型 1.2 → 拉寬 1.18 倍）
+SHELL_NOSE = 37.0588
+MAIN_X = (SHELL_NOSE - 37.11) + 1.83
+MAIN_Z = 10.734 / 2
+NOSE_GX = (SHELL_NOSE - 4.63) - 2.73
+GEAR_W = 1.18
 for o in obs:
     M = o.matrix_world
     co0 = np.array([list(M @ v.co) for v in o.data.vertices])
@@ -225,8 +236,8 @@ for o in obs:
     tag = 'tire' if nf in (18299, 18300) else 'rim' if nf in (18172, 17148) else 'strut'
     dec(o, 5000 if tag == 'tire' else 1600 if tag == 'rim' else 900)
     if co0[:, 0].max() < 1:   # 主起落架：3 排 × 2 顆
-        tf = lambda co: np.stack([co[:, 0] + MAIN_X, co[:, 2] + 0.68, MAIN_Z - co[:, 1]], -1)
-        W = [(x + MAIN_X, MAIN_Z + dz) for x in (-3.27, -1.83, -0.38) for dz in (-0.6, 0.6)]
+        tf = lambda co: np.stack([co[:, 0] + MAIN_X, co[:, 2] + 0.68, MAIN_Z - co[:, 1] * GEAR_W], -1)
+        W = [(x + MAIN_X, MAIN_Z + dz * GEAR_W) for x in (-3.27, -1.83, -0.38) for dz in (-0.6, 0.6)]
         for P, T in comps(o, tf):
             if tag == 'strut': mirror_add('mainGear', 'gear', P, T, tag); continue
             c = (P.min(0) + P.max(0)) / 2
