@@ -701,9 +701,15 @@ export function buildBus() {
     fm.map = floorTex();
     const y = mat.plastic(COL.yellow);
     const g = [];
-    g.push(span([-1.9, FLOOR - 0.06, -W + 0.05], [L - 0.02, FLOOR, W - 0.05], 0.01));
+    // 地板在前後輪拱處讓開（縮到輪罩內側），不然地板的兩邊會從輪子中間穿過去，看起來像一條橫桿
+    const slab = (x0, x1, y0, y1, ax, inner) => {
+      g.push(span([x0, y0, -W + 0.05], [ax - 0.62, y1, W - 0.05], 0.01));
+      g.push(span([ax - 0.62, y0, -inner], [ax + 0.62, y1, inner], 0.01));
+      g.push(span([ax + 0.62, y0, -W + 0.05], [x1, y1, W - 0.05], 0.01));
+    };
+    slab(-1.9, L - 0.02, FLOOR - 0.06, FLOOR, AX_F, 0.66);
     g.push(span([-1.92, FLOOR, -W + 0.05], [-1.88, RAISED, W - 0.05], 0.01));
-    g.push(span([-4.3, RAISED - 0.06, -W + 0.05], [-1.88, RAISED, W - 0.05], 0.01));
+    slab(-4.3, -1.88, RAISED - 0.06, RAISED, AX_R, 0.5);
     g.push(span([-4.32, RAISED, -W + 0.05], [-4.28, TOP, W - 0.05], 0.01));
     g.push(span([-L + 0.04, TOP - 0.06, -W + 0.05], [-4.28, TOP, W - 0.05], 0.01));
     // 輪罩（輪子在地板上鼓起來的地方）：深灰色，從輪拱看進去才不會一片亮
@@ -711,6 +717,9 @@ export function buildBus() {
     for (const s of [-1, 1]) {
       humps.push(span([AX_F - 0.62, FLOOR, s * 0.66], [AX_F + 0.62, 1.1, s * 0.92], 0.06));
       humps.push(span([AX_R - 0.62, RAISED, s * 0.5], [AX_R + 0.62, 1.12, s * 0.62], 0.04));
+      // 輪罩的頂蓋：從內牆蓋到車身側面（地板在輪子這裡讓開了，從車廂裡往下看不會看到輪胎）
+      humps.push(span([AX_F - 0.62, 1.03, s * 0.66], [AX_F + 0.62, 1.1, s * (W - 0.05)], 0.03));
+      humps.push(span([AX_R - 0.62, 1.05, s * 0.5], [AX_R + 0.62, 1.12, s * (W - 0.05)], 0.03));
     }
     g.push(span([4.62, FLOOR, -W + 0.05], [5.88, 0.55, -0.3], 0.02));
     const yel = [];
@@ -875,7 +884,10 @@ export function buildBus() {
       g.push(span([-1.6, 0.18, s * 0.6 - 0.04], [5.9, 0.27, s * 0.6 + 0.04], 0.01));
       g.push(rod([-1.6, 0.225, s * 0.6], [-2.0, 0.6, s * 0.6], 0.05, 6));
       g.push(span([-6.0, 0.53, s * 0.6 - 0.04], [-1.95, 0.67, s * 0.6 + 0.04], 0.01));
-      g.push(span([-L + 0.15, 0.24, s * (W - 0.08) - 0.03], [L - 0.2, 0.3, s * (W - 0.08) + 0.03], 0.005));
+      // 兩側最下面的邊樑：在前後輪拱處斷開（原本一整條穿過輪子，從輪框凹進去的地方看得到一條橫桿）
+      const ARCH = 0.64;
+      const segs = [[-L + 0.15, AX_R - ARCH], [AX_R + ARCH, AX_F - ARCH], [AX_F + ARCH, L - 0.2]];
+      for (const [x0, x1] of segs) g.push(span([x0, 0.24, s * (W - 0.08) - 0.03], [x1, 0.3, s * (W - 0.08) + 0.03], 0.005));
     }
     for (const x of [5.6, 4.6, 2.5, 1.3, 0.1, -1.2]) g.push(span([x - 0.04, 0.18, -W + 0.08], [x + 0.04, 0.27, W - 0.08], 0.005));
     for (const x of [-3.25, -L + 0.05]) g.push(span([x - 0.04, 0.53, -0.64], [x + 0.04, 0.67, 0.64], 0.005));
