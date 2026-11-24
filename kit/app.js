@@ -1062,7 +1062,7 @@ ${
   const tmpBox = new THREE.Box3();
   const tmpV = new THREE.Vector3();
   const clock = new THREE.Clock();
-  const perf = {n: 0, sum: 0};
+  const perf = {t: 0, d: [], step: 0}; // 慢的裝置自動降級（見每格最後）
   let raf = 0;
   function tick() {
     if (!alive) return;
@@ -1188,20 +1188,31 @@ ${
       tag.style.transform = `translate(${(tmpV.x * 0.5 + 0.5) * innerWidth}px, ${(-tmpV.y * 0.5 + 0.5) * innerHeight}px)`;
     } else tag.hidden = true;
 
-    composer.render();
-    // 慢的裝置自動降級：先關環境遮蔽，再降解析度
-    if (perf.n < 150) {
-      perf.n++;
-      if (perf.n > 30) perf.sum += dt;
-      if (perf.n === 150) {
-        const avg = perf.sum / 120;
-        if (avg > 1 / 40) gtao.enabled = false;
-        if (avg > 1 / 28) {
+    // 慢的裝置自動降級：先關環境遮蔽，再量一次，還是慢才降解析度。
+    // 暖機之後量 40 格的平均（一開始編譯著色器那幾格的大卡頓不算），幾秒內就決定；
+    // 原本等到第 150 格才判斷：慢的手機要卡十幾秒，降解析度時畫布清空那一格就是「閃一下」。
+    // 降解析度放在畫這一格之前做，畫布清空後馬上畫好，不會閃。
+    // 剛打開的 1.2 秒還在暖機（上傳模型、編譯），不算；之後量 40 格。
+    if (perf.step < 2) {
+      perf.t += dt;
+      if (perf.t > 1.2) perf.d.push(dt);
+      if (perf.d.length >= 40) {
+        // 平均（去掉最慢的兩格：單次編譯不算；但不時就卡一下要算進去，那正是看起來卡的原因，所以不用中位數）
+        const ds = perf.d.sort((a, b) => a - b).slice(0, -2);
+        const med = ds.reduce((a, b) => a + b, 0) / ds.length;
+        if (location.search.includes('perf')) console.log('[perf]', perf.step, (med * 1000).toFixed(1), 'ms', gtao.enabled, renderer.getPixelRatio());
+        if (perf.step === 0 && med > 1 / 40 && gtao.enabled) gtao.enabled = false;
+        else if (med > 1 / 28 && renderer.getPixelRatio() > 1) {
           renderer.setPixelRatio(1);
           resize();
+          perf.step = 1;
         }
+        perf.step++;
+        perf.t = 1; // 下一輪只等 0.2 秒（剛關掉環境遮蔽，讓它穩一下）
+        perf.d = [];
       }
     }
+    composer.render();
     raf = requestAnimationFrame(tick);
   }
 
