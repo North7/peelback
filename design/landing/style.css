@@ -1,52 +1,7 @@
 :root {
-  --bg: #f3f1ec;
-  --bg2: #ebe7df;
-  --ink: #1a1b1d;
-  --muted: #676a6f;
-  --faint: rgba(26, 27, 29, 0.38);
-  --line: rgba(26, 27, 29, 0.14);
-  --glass: rgba(255, 255, 255, 0.7);
-  --glass-edge: rgba(255, 255, 255, 0.9);
-  --accent: #2f5bea;
-  --accent-ink: #ffffff;
-  --shadow: 0 10px 30px rgba(40, 32, 20, 0.12), 0 2px 6px rgba(40, 32, 20, 0.08);
-  --f-sans: "Inter Tight", "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
-  --f-zh: "Noto Sans TC", "PingFang TC", "Heiti TC", sans-serif;
-  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  /* 顏色、字型直接用網站的（打包時從 kit/style.css 帶進來），這裡只留介紹頁自己多的 */
+  --faint: color-mix(in srgb, var(--ink) 38%, transparent);
   --gut: max(22px, min(56px, 4vw), env(safe-area-inset-left, 0px));
-  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --out: cubic-bezier(0.16, 1, 0.3, 1);
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #070708;
-    --bg2: #111214;
-    --ink: #edede8;
-    --muted: #9b9da1;
-    --faint: rgba(237, 237, 232, 0.4);
-    --line: rgba(237, 237, 232, 0.16);
-    --glass: rgba(26, 27, 30, 0.72);
-    --glass-edge: rgba(255, 255, 255, 0.14);
-    --accent: #6f8dff;
-    --accent-ink: #0a0b10;
-    --shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #070708;
-  --bg2: #111214;
-  --ink: #edede8;
-  --muted: #9b9da1;
-  --faint: rgba(237, 237, 232, 0.4);
-  --line: rgba(237, 237, 232, 0.16);
-  --glass: rgba(26, 27, 30, 0.72);
-  --glass-edge: rgba(255, 255, 255, 0.14);
-  --accent: #6f8dff;
-  --accent-ink: #0a0b10;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
-  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; overscroll-behavior: none; }

@@ -93,9 +93,9 @@ export default async function run(stage, ctx) {
   const paint = () => {
     st.paint();
     const d = isDark();
-    rulerMat.color.set(d ? '#7d98ff' : '#2f5bea');
-    kidMat.color.set(d ? '#7d98ff' : '#2f5bea');
-    tickMat.color.set(d ? '#edede8' : '#1a1b1d');
+    rulerMat.color.set(css('--accent'));
+    kidMat.color.set(css('--accent'));
+    tickMat.color.set(css('--ink'));
   };
   paint();
   ctx.onTheme(paint);

@@ -236,8 +236,8 @@ export default async function run(stage, ctx) {
   const paint = () => {
     const d = isDark();
     scene.background = new THREE.Color(css('--bg'));
-    U.uInk.value.set(d ? '#edede8' : '#1a1b1d');
-    U.uAcc.value.set(d ? '#7d98ff' : '#2f5bea');
+    U.uInk.value.set(css('--ink'));
+    U.uAcc.value.set(css('--accent'));
     U.uAlpha.value = d ? 0.55 : 0.5;
     dU.uAlpha.value = d ? 0.14 : 0.1;
     for (const m of [mat, dust.material]) {

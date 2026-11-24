@@ -77,7 +77,7 @@ export default async function run(stage, ctx) {
 
   const paint = () => {
     st.paint();
-    acc.set(isDark() ? '#7d98ff' : '#2f5bea');
+    acc.set(css('--accent'));
     fillMat.opacity = isDark() ? 0.1 : 0.07;
   };
   paint();

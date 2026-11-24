@@ -21,28 +21,28 @@ const PAUSE = '<svg viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13" stroke
 const REPLAY = '<svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4v4.5H9"/></svg>';
 // 每個鏡頭：多久、換到這個鏡頭要花多久（tr，快速推過去）、焦點零件或位置、名牌、字幕
 const SHOTS = [
-  {dur: 9, tr: 6.5, focus: null, dir: [0.78, 0.3, -0.75], dist: 0.75},
-  {dur: 5.5, tr: 2.2, focus: null, dir: [0.75, 0.42, -0.85], dist: 1.05, card: ['Model Y', `${SPEC.length} 公尺・${Object.keys(PARTS).length} 個零件`]},
-  {dur: 5, tr: 1.7, focus: 'seats', dir: [0.3, 0.5, -0.92], dist: 0.62, card: [PARTS.seats.name, `${SPEC.seats} 個座位：前面兩個、後面三個`],
+  {dur: 6.5, tr: 4.6, focus: null, dir: [0.78, 0.3, -0.75], dist: 0.75},
+  {dur: 4, tr: 1.6, focus: null, dir: [0.75, 0.42, -0.85], dist: 1.05, card: ['Model Y', `${SPEC.length} 公尺・${Object.keys(PARTS).length} 個零件`]},
+  {dur: 3.8, tr: 1.3, focus: 'seats', dir: [0.3, 0.5, -0.92], dist: 0.62, card: [PARTS.seats.name, `${SPEC.seats} 個座位：前面兩個、後面三個`],
     chap: ['一層一層拆開', '外殼、座椅、底盤、電池，每一層都可以單獨拿出來看。']},
-  {dur: 5, tr: 1.9, focus: 'battery', dir: [0.55, -0.3, -0.95], dist: 0.58, card: [PARTS.battery.name, `大約 ${SPEC.battery} 度電，可以把 5000 支手機充飽`],
+  {dur: 3.8, tr: 1.4, focus: 'battery', dir: [0.55, -0.3, -0.95], dist: 0.58, card: [PARTS.battery.name, `大約 ${SPEC.battery} 度電，可以把 5000 支手機充飽`],
     chap: ['每個零件都有名字', '點一下零件，名牌就跳出來，還會念給你聽。中文、英文、注音都有。']},
-  {dur: 6, tr: 2.2, fit: ['car', 'bus'], az: 0.68, el: 0.26,
+  {dur: 4.6, tr: 1.7, fit: ['car', 'bus'], az: 0.68, el: 0.26,
     chap: ['照真的大小做', '旁邊站一個 115 公分的小朋友。公車 12.2 公尺，差不多 11 個小朋友躺成一排。']},
   // 不框整列高鐵：前景車子和小朋友，高鐵前幾節清楚、後面交給景深糊掉
-  {dur: 8, tr: 2.4, at: [-14, 2.6, 9], d: 44, atP: [-7, 2.4, 5], dP: 64, az: 1.02, el: 0.17,
+  {dur: 6, tr: 1.8, at: [-14, 2.6, 9], d: 44, atP: [-7, 2.4, 5], dP: 64, az: 1.02, el: 0.17,
     chap: ['四台車，四種大小', '最長的高鐵 304 公尺，12 節車廂一節一節都拆得開。']},
-  {dur: Infinity, tr: 3, at: [-17, 3.2, 12], d: 52, atP: [-8, 2.8, 6], dP: 68, az: 1.16, el: 0.13, night: true,
+  {dur: Infinity, tr: 2.4, at: [-17, 3.2, 12], d: 52, atP: [-8, 2.8, 6], dP: 68, az: 1.16, el: 0.13, night: true,
     chap: ['天黑了，燈亮起來', '車頭燈、尾燈、高鐵整排的窗、飛機翅膀上一閃一閃的燈，每一組都可以自己打開。'], cta: true},
 ];
 const LANES = {car: 0, bus: 4.2, train: 8.8, plane: 46};
 // 每一台什麼時候用粒子聚出來（第幾個鏡頭、那個鏡頭開始後幾秒）：點聚攏、再一道光從車頭掃到車尾變成實體
 const APPEAR = {
-  car: {shot: 0, gather: [0.3, 3.6], sweep: [4.4, 2.6], n: 64000, spread: 'center', k: 16},
-  bus: {shot: 4, gather: [0.2, 1.9], sweep: [1.7, 1.3], n: 26000, spread: 4, k: 26},
+  car: {shot: 0, gather: [0.2, 2.6], sweep: [3.0, 1.9], n: 64000, spread: 'center', k: 16},
+  bus: {shot: 4, gather: [0.15, 1.4], sweep: [1.2, 1.0], n: 26000, spread: 4, k: 26},
   // 飛機、高鐵：等鏡頭轉過去到位了才開始聚
-  plane: {shot: 5, gather: [1.9, 2.0], sweep: [3.6, 1.5], n: 36000, spread: 10, k: 46, size: 1.5},
-  train: {shot: 5, gather: [2.2, 2.0], sweep: [3.9, 1.7], n: 44000, spread: 8, k: 46, size: 1.5},
+  plane: {shot: 5, gather: [1.4, 1.5], sweep: [2.7, 1.2], n: 36000, spread: 10, k: 46, size: 1.5},
+  train: {shot: 5, gather: [1.6, 1.5], sweep: [2.9, 1.3], n: 44000, spread: 8, k: 46, size: 1.5},
 };
 // 片子裡只從外面看高鐵和飛機：客艙裡的座椅、車底的機器、貨艙都不畫（省很多三角形；車窗的燈在外殼上，不受影響）
 const HIDE = {
@@ -60,7 +60,8 @@ const PATTERN = {
     return k < 0.05 || (k > 0.14 && k < 0.19) ? 1 : 0;
   },
 };
-const NIGHT = {bg: new THREE.Color('#0a0f1c'), moon: new THREE.Color('#9db2ff'), white: new THREE.Color('#fffaf0')};
+// 和網站（kit/app.js）同一組夜色
+const NIGHT = {bg: new THREE.Color('#0a0f1c'), ground: new THREE.Color('#141a26'), moon: new THREE.Color('#9db2ff'), white: new THREE.Color('#fffaf0'), shadow: new THREE.Color('#000000')};
 const easeIO = (x) => ((x = clamp01(x)) < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2); // 換鏡頭：先加速、再減速
 
 const PVERT = `
@@ -151,6 +152,32 @@ export default async function run(stage, ctx) {
   st.shade.geometry = new THREE.PlaneGeometry(3000, 3000);
   const rim = new THREE.DirectionalLight('#eef2ff', 1.2); // 逆光：從後面慢慢繞著掃過去
   scene.add(rim, rim.target);
+  // 和網站一樣：3D 的白天一律用淺色版的天空、地面、影子顏色（切到晚上才從白天慢慢變成夜色）
+  const DAY = {bg: new THREE.Color(), ground: new THREE.Color(), shadow: new THREE.Color()};
+  {
+    const de = document.documentElement;
+    const was = de.dataset.theme;
+    de.dataset.theme = 'light';
+    const cs = getComputedStyle(de);
+    DAY.bg.set(cs.getPropertyValue('--bg').trim());
+    DAY.ground.set(cs.getPropertyValue('--ground').trim());
+    DAY.shadow.set(cs.getPropertyValue('--shadow-ink').trim());
+    de.dataset.theme = was;
+  }
+  scene.background = new THREE.Color().copy(DAY.bg);
+  // 地面：車子底下比背景深一點，往外慢慢淡進背景（網站裡的地面，範圍跟著鏡頭的遠近）
+  const groundMat = new THREE.ShaderMaterial({
+    uniforms: {uG: {value: new THREE.Color()}, uBg: {value: new THREE.Color()}, uC: {value: new THREE.Vector2()}, uR: {value: new THREE.Vector2(4, 12)}},
+    vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+    fragmentShader: `uniform vec3 uG; uniform vec3 uBg; uniform vec2 uC; uniform vec2 uR; varying vec3 vW;
+      void main(){ gl_FragColor = vec4(mix(uG, uBg, smoothstep(uR.x, uR.y, length(vW.xz - uC))), 1.0);
+      #include <colorspace_fragment>
+      }`,
+  });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000).rotateX(-Math.PI / 2), groundMat);
+  ground.position.y = -0.002;
+  ground.renderOrder = -1;
+  scene.add(ground);
 
   // ---------- 燈：每台車的燈材質和光源（和網站同一套標記） ----------
   const lamps = [];
@@ -263,7 +290,7 @@ export default async function run(stage, ctx) {
       if (p.target === (on ? 1 : 0)) continue;
       p.target = on ? 1 : 0;
       // 拆：外殼先走、一層一層往裡；合：最裡面的先回去
-      p.wait = RM.matches ? 0 : on ? (L - 1) * 0.34 + (p.order % 4) * 0.06 : (NL - L) * 0.12 + (p.order % 4) * 0.04;
+      p.wait = RM.matches ? 0 : on ? (L - 1) * 0.26 + (p.order % 4) * 0.05 : (NL - L) * 0.12 + (p.order % 4) * 0.04;
     }
   };
 
@@ -352,27 +379,38 @@ export default async function run(stage, ctx) {
     bloom.enabled = false;
   }
   mark('warm');
-  const dayBg = new THREE.Color();
-  let nightDriven = false, darkPending = false; // 第 7 個鏡頭把頁面換成深色（離開時換回原本的）
-  let themeBefore = null;
+  // 白天／晚上只有一個狀態（和網站一樣）：頁面是深色就是晚上的場景。第 7 個鏡頭自己天黑，這時按日夜鍵就真的換成白天（燈照樣亮著），再按回到晚上
+  const de = document.documentElement;
+  let userDark = de.dataset.theme === 'dark'; // 使用者自己選的
+  let dayOverride = false; // 第 7 個鏡頭裡按了「白天」
+  let pendingTheme = null; // 天色過半才換頁面的字色（不然背景還亮著、字底先變黑）
+  const css = (n) => getComputedStyle(de).getPropertyValue(n).trim();
   const paint = () => {
-    if (!nightDriven) st.paint();
-    dayBg.copy(scene.background);
     const d = isDark();
-    kidMat.color.set(d ? '#7d98ff' : '#2f5bea');
-    accC.set(d ? '#7d98ff' : '#2f5bea');
+    const acc = css('--accent'), ink = css('--ink');
+    kidMat.color.set(acc);
+    accC.set(acc);
     for (const id in V) {
       const {PU, pts} = V[id];
-      PU.uInk.value.set(d ? '#edede8' : '#1a1b1d');
-      PU.uAcc.value.set(d ? '#7d98ff' : '#2f5bea');
+      PU.uInk.value.set(ink);
+      PU.uAcc.value.set(acc);
       PU.uAlpha.value = d ? 0.5 : 0.36;
       pts.material.blending = d ? THREE.AdditiveBlending : THREE.NormalBlending;
       pts.material.needsUpdate = true;
     }
   };
   paint();
-  ctx.onTheme(() => {
-    if (nightDriven) themeBefore = null; // 自己按了日夜：離開晚上時不再換回去
+  const nightOn = () => userDark || (!!SHOTS[si].night && !dayOverride);
+  const applyNight = () => {
+    const on = nightOn();
+    nightS.to = on ? 1 : 0;
+    pendingTheme = (de.dataset.theme === 'dark') === on ? null : on ? 'dark' : 'light';
+  };
+  ctx.onTheme((t) => {
+    userDark = t === 'dark';
+    if (SHOTS[si].night) dayOverride = t === 'light';
+    pendingTheme = null;
+    nightS.to = nightOn() ? 1 : 0;
     paint();
   });
 
@@ -394,7 +432,8 @@ export default async function run(stage, ctx) {
 
   // ---------- 狀態 ----------
   let si = 0, shotT = 0, playing = !RM.matches;
-  const nightS = new Spring(0, 6, 4.9);
+  const nightS = new Spring(0, 9, 6);
+  nightS.x = nightS.to = userDark ? 1 : 0; // 頁面本來就是深色：一開始就是晚上的場景（和網站一樣）
   const num = {v: SPEC.length, from: SPEC.length, to: SPEC.length, t: 1};
   const UP = new THREE.Vector3(0, 1, 0);
   const portrait = () => camera.aspect < 0.8;
@@ -458,21 +497,6 @@ export default async function run(stage, ctx) {
     b.innerHTML = si === SHOTS.length - 1 ? REPLAY : playing ? PAUSE : PLAY;
     b.setAttribute('aria-label', si === SHOTS.length - 1 ? '重播' : playing ? '暫停' : '播放');
   };
-  const setNight = (on) => {
-    nightS.to = on ? 1 : 0;
-    const de = document.documentElement;
-    if (on && !nightDriven) {
-      nightDriven = true;
-      dayBg.copy(scene.background);
-      themeBefore = de.dataset.theme;
-      darkPending = themeBefore !== 'dark'; // 天色過半才把頁面的字換成夜晚的顏色（不然背景還亮著、字底先變黑）
-    } else if (!on && nightDriven) {
-      nightDriven = false;
-      darkPending = false;
-      if (themeBefore && themeBefore !== 'dark') de.dataset.theme = themeBefore;
-      themeBefore = null;
-    }
-  };
   const setText = (i) => {
     const s = SHOTS[i];
     copy.classList.toggle('away', i > 1 || (i === 0 && shotT < 3));
@@ -484,7 +508,7 @@ export default async function run(stage, ctx) {
         $('#fcT').textContent = s.card[0];
         $('#fcL').textContent = s.card[1];
         card.classList.add('on');
-      }, RM.matches ? 0 : i === 1 ? 2200 : 1100);
+      }, RM.matches ? 0 : i === 1 ? 1500 : 800);
     chap.classList.remove('in');
     chap.classList.toggle('off', !s.chap);
     if (s.chap)
@@ -496,20 +520,20 @@ export default async function run(stage, ctx) {
         chap.classList.toggle('withcta', !!s.cta);
         void chap.offsetWidth;
         chap.classList.add('in');
-      }, RM.matches ? 0 : s.night ? 1500 : 700);
+      }, RM.matches ? 0 : s.night ? 1100 : 500);
     meter.classList.toggle('off', i < 4 || !!s.night);
     if (i >= 4) {
       const id = i === 4 ? 'bus' : 'train';
       if (num.to !== INFO[id].len) {
         num.from = num.v;
         num.to = INFO[id].len;
-        num.t = i === 5 ? -2.4 : 0; // 高鐵：等它掃出來時才開始滾
+        num.t = i === 5 ? -1.8 : 0; // 高鐵：等它掃出來時才開始滾
       }
       const who = () => {
         $('#mWho').textContent = `${INFO[id].brand}・${INFO[id].name}`;
         $('#mKids').textContent = `差不多 ${Math.round(INFO[id].len / KID)} 個小朋友躺成一排`;
       };
-      if (i === 5) setTimeout(() => si === 5 && who(), RM.matches ? 0 : 3800);
+      if (i === 5) setTimeout(() => si === 5 && who(), RM.matches ? 0 : 2900);
       else who();
     }
     if (i < 4) (num.v = num.from = num.to = SPEC.length), (num.t = 1);
@@ -527,7 +551,8 @@ export default async function run(stage, ctx) {
     shotT = filmT - START[i];
     hint.classList.add('gone');
     setApart(i >= 1 && i <= 3);
-    setNight(!!SHOTS[i].night);
+    if (SHOTS[i].night) dayOverride = false;
+    applyNight();
     setText(i);
     if (!playing) setTimeout(() => si === i && i < SHOTS.length - 1 && hint.classList.remove('gone'), 3000);
   };
@@ -571,7 +596,7 @@ export default async function run(stage, ctx) {
     const cur = progB[si]?.querySelector('i');
     if (cur) cur.style.setProperty('--p', isFinite(SHOTS[si].dur) ? clamp01(shotT / SHOTS[si].dur) : 1);
     if (si === 0) {
-      if (!stage0.copyShown && shotT > 3.2) (stage0.copyShown = true), copy.classList.remove('away');
+      if (!stage0.copyShown && shotT > 2.3) (stage0.copyShown = true), copy.classList.remove('away');
       if (shotT < 0.05) copy.classList.add('away');
     } else stage0.copyShown = false;
     // 每一台：還沒輪到就藏著；輪到了點先聚攏、再一道光從車頭掃到車尾；之後就是實體
@@ -611,31 +636,36 @@ export default async function run(stage, ctx) {
       p.obj.position.copy(p.base).addScaledVector(p.vec, p.x);
       if (p.hinge) p.obj.rotation.x = p.hinge * 0.985 * Math.max(0, p.x);
     }
-    kidS.to = si > 4 || (si === 4 && shotT > 1.6) ? 1 : 0; // 鏡頭退開之後才出現（不然在鏡頭前面變一個大人形）
+    kidS.to = si > 4 || (si === 4 && shotT > 1.2) ? 1 : 0; // 鏡頭退開之後才出現（不然在鏡頭前面變一個大人形）
     kid.scale.setScalar(Math.max(0.0001, kidS.step(dt)));
     if (num.t < 1) {
-      num.t = Math.min(1, num.t + dt / 1.6);
+      num.t = Math.min(1, num.t + dt / 1.3);
       num.v = num.from + (num.to - num.from) * ease(num.t);
       $('#mNum').textContent = num.v < 20 ? num.v.toFixed(num.to < 20 ? 2 : 1) : Math.round(num.v).toString();
     }
     // 天黑：背景、太陽變月光、環境光變暗；燈一台一台亮起來（晚上才有光暈）
     const n = smooth(nightS.step(dt));
-    if (darkPending && n > 0.5) (darkPending = false), (document.documentElement.dataset.theme = 'dark');
-    if (n > 0.001 || nightDriven) {
-      scene.background.copy(dayBg).lerp(NIGHT.bg, n);
-      sun.intensity = 2.2 + (0.32 - 2.2) * n;
-      sun.color.copy(NIGHT.white).lerp(NIGHT.moon, n);
-      hemi.intensity = 0.55 + (0.07 - 0.55) * n;
-      scene.environmentIntensity = 0.75 + (0.09 - 0.75) * n;
-      st.shadeMat.opacity = 0.2 + 0.2 * n;
-      rim.intensity = 1.2 * (1 - n);
+    if (pendingTheme && (pendingTheme === 'dark' ? n > 0.5 : n < 0.5)) {
+      de.dataset.theme = pendingTheme;
+      pendingTheme = null;
+      paint();
     }
+    scene.background.copy(DAY.bg).lerp(NIGHT.bg, n);
+    groundMat.uniforms.uG.value.copy(DAY.ground).lerp(NIGHT.ground, n);
+    groundMat.uniforms.uBg.value.copy(scene.background);
+    st.shadeMat.color.copy(DAY.shadow).lerp(NIGHT.shadow, n);
+    sun.intensity = 2.2 + (0.32 - 2.2) * n;
+    sun.color.copy(NIGHT.white).lerp(NIGHT.moon, n);
+    hemi.intensity = 0.55 + (0.07 - 0.55) * n;
+    scene.environmentIntensity = 0.75 + (0.09 - 0.75) * n;
+    st.shadeMat.opacity = 0.22 * (1 - 0.65 * n) + 0.2 * n;
+    rim.intensity = 1.2 * (1 - n);
     bloom.enabled = n > 0.01;
     bloom.strength = 0.9 * n;
     bloom.threshold = 4.5 + (1.0 - 4.5) * n;
     const ORDER_ON = ['car', 'bus', 'train', 'plane'];
     const nightT = SHOTS[si].night ? shotT : -1;
-    const want = (veh, group) => (nightT < 0 || !NIGHT_ON[veh]?.includes(group) ? 0 : nightT > 1.2 + ORDER_ON.indexOf(veh) * 0.55 + NIGHT_ON[veh].indexOf(group) * 0.18 ? 1 : 0);
+    const want = (veh, group) => (nightT < 0 || !NIGHT_ON[veh]?.includes(group) ? 0 : nightT > 0.9 + ORDER_ON.indexOf(veh) * 0.4 + NIGHT_ON[veh].indexOf(group) * 0.14 ? 1 : 0);
     for (const L of lamps) {
       const w = want(L.veh, L.group) * PATTERN[L.mode](t);
       L.lv += (w - L.lv) * (1 - Math.exp(-dt * (L.mode === 'steady' ? 6 : 40)));
@@ -675,6 +705,8 @@ export default async function run(stage, ctx) {
     sun.shadow.camera.updateProjectionMatrix();
     sun.position.set(tgt.x + E * 0.5, E * 2.2, tgt.z - E * 0.8);
     sun.target.position.copy(tgt);
+    groundMat.uniforms.uC.value.set(tgt.x, tgt.z);
+    groundMat.uniforms.uR.value.set(dist * 0.35, dist * 1.3);
     sun.shadow.bias = -0.0004 * Math.max(1, E / 8);
     const ra = t * 0.15;
     rim.position.set(tgt.x + Math.cos(ra) * 20, tgt.y + 8, tgt.z + 20 + Math.sin(ra) * 6);
@@ -720,7 +752,8 @@ export default async function run(stage, ctx) {
   return {
     dispose() {
       stop();
-      setNight(false);
+      // 離開時頁面換回使用者自己選的日夜
+      if ((de.dataset.theme === 'dark') !== userDark) de.dataset.theme = userDark ? 'dark' : 'light';
       ro.disconnect();
       bokeh.dispose?.();
       bloom.dispose?.();

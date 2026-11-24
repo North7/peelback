@@ -48,6 +48,8 @@ app.innerHTML = `
 const themeBtn = document.getElementById('theme');
 const paintThemeBtn = () => (themeBtn.innerHTML = root.dataset.theme === 'dark' ? MOON : SUN);
 paintThemeBtn();
+// 片子自己天黑、天亮時（改了 data-theme），右上角的圖示也跟著換
+new MutationObserver(paintThemeBtn).observe(root, {attributes: true, attributeFilter: ['data-theme']});
 let themeFns = [];
 themeBtn.onclick = () => {
   const t = root.dataset.theme === 'dark' ? 'light' : 'dark';

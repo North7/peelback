@@ -24,7 +24,10 @@ const res = await esbuild.build({
   loader: {'.bin': 'binary', '.jpg': 'dataurl', '.png': 'dataurl', '.webp': 'dataurl'},
 });
 const js = res.outputFiles.find((f) => f.path.endsWith('.js')).text.replace(/<\/script/g, '<\\/script');
-const css = fs.readFileSync(path.join(HERE, 'style.css'), 'utf8');
+// 顏色、字型：直接用網站的那一段（kit/style.css 開頭到深色版定義完），介紹頁不另外抄一份
+const kit = fs.readFileSync(path.join(ROOT, 'kit/style.css'), 'utf8');
+const tokEnd = kit.indexOf('}', kit.indexOf(':root[data-theme="dark"]')) + 1;
+const css = kit.slice(0, tokEnd) + '\n' + fs.readFileSync(path.join(HERE, 'style.css'), 'utf8');
 const {FAVICON} = await import('../../kit/logo.js');
 const FONTS = '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=JetBrains+Mono:wght@500&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">';
 const inner = `<title>剝剝看 首屏樣稿</title>

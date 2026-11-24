@@ -74,7 +74,7 @@ async function drawPoster(w, h, pr) {
   cv.height = H;
   const g = cv.getContext('2d');
   const dark = isDark();
-  const ink = dark ? '#edede8' : '#1a1b1d', muted = dark ? '#9b9da1' : '#676a6f', acc = dark ? '#7d98ff' : '#2f5bea';
+  const ink = css('--ink'), muted = css('--muted'), acc = css('--accent'); // 網站的顏色
   const paper = dark ? '#151618' : '#f3f1ec';
   try {
     await Promise.all([document.fonts.load('900 200px "Noto Sans TC"', '剝看把真的車一層開'), document.fonts.load('500 20px "JetBrains Mono"'), document.fonts.load('700 20px "Noto Sans TC"', '台北客運低地板公車星宇航空特斯拉台灣高鐵'), document.fonts.load('800 20px "Inter Tight"')]);
