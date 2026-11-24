@@ -633,12 +633,13 @@ html[data-lang="en"] .vtitle { font-family: var(--f-sans); letter-spacing: -0.01
   .tools.open .sys .round { box-shadow: none; background: var(--glass2); width: 44px; height: 44px; }
   .tools.open .menu { background: var(--accent); color: var(--accent-ink); }
 
-  .bar { left: 12px; right: 12px; transform: none; max-width: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 4px; border-radius: 24px; }
+  .bar { left: 12px; right: 12px; transform: none; max-width: none; display: grid; grid-template-columns: repeat(var(--cols, 5), 1fr); gap: 2px; padding: 4px; border-radius: 24px; }
   .bar button, html[data-lang="zy"] .bar button { width: auto; height: 52px; min-height: 0; padding: 0; border-radius: 20px; font-size: 10px; gap: 1px; }
   .bar button svg { width: 20px; height: 20px; }
   .bar .more { display: grid; }
+  .bar.nomore .more { display: none; }
   .bar .extra { display: none; }
-  .bar.expanded .extra { display: grid; grid-row: 1; }
+  .bar.expanded .extra { display: grid; grid-row: 1; grid-column: span 2; } /* 收起來的按鈕字比較長（電怎麼走），上面那排一顆佔兩格 */
   .bar.expanded > :not(.extra) { grid-row: 2; }
   .bar.expanded .more { background: var(--glass2); color: var(--ink); }
   html[data-lang="zy"] .bar button > span { max-width: none; font-size: 10px; flex-wrap: nowrap; white-space: nowrap; }

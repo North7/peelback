@@ -89,6 +89,16 @@ export function startApp(V, opts = {}) {
 
   // ---------- 介面 ----------
   const VEHS = opts.vehicles || [];
+  // 控制列：拆開、透視、燈光放前面，再來是每台車自己的按鈕。
+  // 手機上一排最多 5 格：放得下就全部擺出來；放不下時前 4 個留著，其餘收進「更多」（按了不會自己收回去）
+  const BAR = [
+    `<button data-act="explode" class="">${ICON.explode}<span></span></button>`,
+    `<button data-act="xray" class="">${ICON.xray}<span></span></button>`,
+    ...(V.LIGHTS ? [`<button data-act="lights" id="lightBtn" class="">${ICON.bulb}<i class="lit-dot"></i><span></span></button>`] : []),
+    ...V.actions.map((a) => `<button data-act="${a.id}" class="">${a.icon}<span></span></button>`),
+  ];
+  const BAR_N = BAR.length;
+  const BAR_MAX = 5;
   app.innerHTML = `
 <canvas id="gl"></canvas>
 <header class="top">
@@ -131,11 +141,8 @@ ${
 </section>`
     : ''
 }
-<nav class="bar" id="bar">
-  <button data-act="explode">${ICON.explode}<span></span></button>
-  <button data-act="xray">${ICON.xray}<span></span></button>
-  ${V.actions.map((a, i) => `<button data-act="${a.id}" class="${i ? 'extra' : ''}">${a.icon}<span></span></button>`).join('')}
-  ${V.LIGHTS ? `<button data-act="lights" id="lightBtn" class="extra">${ICON.bulb}<i class="lit-dot"></i><span></span></button>` : ''}
+<nav class="bar${BAR_N > BAR_MAX ? '' : ' nomore'}" id="bar" style="--cols:${Math.min(BAR_N, BAR_MAX)}">
+  ${BAR.map((b, i) => b.replace('class="', `class="${BAR_N > BAR_MAX && i >= BAR_MAX - 1 ? 'extra ' : ''}`)).join('')}
   <button id="moreBtn" class="more" aria-expanded="false">${ICON2.more}<span data-t="more"></span></button>
 </nav>
 <div class="hint" id="hint">${ICON.view}<span data-t="hint"></span></div>
@@ -860,7 +867,7 @@ ${
     opts.onHome?.();
   };
   bindSys(app, {sig});
-  // 手機：「更多」把收起來的按鈕（第二個動作、燈光）從控制列上面長出來
+  // 手機：「更多」把放不下的按鈕從控制列上面長出來
   const bar = $('#bar');
   $('#moreBtn').onclick = () => {
     sound.unlock();
@@ -870,9 +877,7 @@ ${
     if (open) for (const [i, b] of [...bar.querySelectorAll('.extra')].entries()) spring(b, [{opacity: 0, transform: 'translateY(10px) scale(.8)'}, {opacity: 1, transform: 'none'}], 480, i * 40);
     requestAnimationFrame(resize);
   };
-  for (const b of bar.querySelectorAll('.extra')) b.addEventListener('click', () => {
-    if (innerWidth <= 620) later(() => { bar.classList.remove('expanded'); $('#moreBtn').setAttribute('aria-expanded', 'false'); requestAnimationFrame(resize); }, 250);
-  });
+  // 「更多」裡的按鈕按了不收回去：可以連續按（例如開了又關），要收起來再按一次「更多」
   for (const b of app.querySelectorAll('#langs button')) {
     b.classList.toggle('on', b.dataset.l === getLang());
     b.addEventListener('click', () => {
