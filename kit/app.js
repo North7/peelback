@@ -237,6 +237,8 @@ ${
 
   // ---------- 場景 ----------
   const canvas = $('#gl');
+  // 畫質自動調整：cap 解析度上限；ao 環境遮蔽要不要開（0／1，淡入淡出）；step 量到第幾輪（見每格最後）
+  const perf = {t: 0, d: [], step: 0, last: 0, cap: 2, ao: 0};
   const renderer = new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: 'high-performance'});
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -319,7 +321,8 @@ ${
   );
   const gtao = new GTAOPass(scene, camera, 4, 4);
   gtao.output = GTAOPass.OUTPUT.Default;
-  gtao.blendIntensity = 1;
+  gtao.blendIntensity = 0; // 一開始關著：量出這台裝置夠快才慢慢淡入（見每格最後）
+  gtao.enabled = false;
   gtao.updateGtaoMaterial({radius: V.ao ?? 0.3, distanceExponent: 1, thickness: 1, scale: 1, samples: 16, distanceFallOff: 1, screenSpaceRadius: false});
   gtao.updatePdMaterial({lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 4, rings: 2, samples: 16});
   composer.addPass(gtao);
@@ -481,6 +484,8 @@ ${
     if (!alive) return;
     const w = innerWidth;
     const h = innerHeight;
+    // 畫布像素有上限（約 320 萬點）：電腦的大螢幕 2 倍解析度會到 600 萬點，後製每格要算的量多一倍，看起來卻差不多；手機的畫布小，不受影響
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, perf.cap, Math.sqrt(3.2e6 / (w * h))));
     renderer.setSize(w, h, false);
     composer.setPixelRatio(renderer.getPixelRatio());
     composer.setSize(w, h);
@@ -1062,7 +1067,6 @@ ${
   const tmpBox = new THREE.Box3();
   const tmpV = new THREE.Vector3();
   const clock = new THREE.Clock();
-  const perf = {t: 0, d: [], step: 0}; // 慢的裝置自動降級（見每格最後）
   let raf = 0;
   function tick() {
     if (!alive) return;
@@ -1188,29 +1192,43 @@ ${
       tag.style.transform = `translate(${(tmpV.x * 0.5 + 0.5) * innerWidth}px, ${(-tmpV.y * 0.5 + 0.5) * innerHeight}px)`;
     } else tag.hidden = true;
 
-    // 慢的裝置自動降級：先關環境遮蔽，再量一次，還是慢才降解析度。
-    // 暖機之後量 40 格的平均（一開始編譯著色器那幾格的大卡頓不算），幾秒內就決定；
-    // 原本等到第 150 格才判斷：慢的手機要卡十幾秒，降解析度時畫布清空那一格就是「閃一下」。
+    // 畫質自動調整（真實的每格時間，不是被限制在 0.05 秒的 dt；按時間判斷，畫面很慢時也不用等很多格）：
+    //   第 1 輪：環境遮蔽關著量，夠快（每格 < 20 毫秒）才打開，慢慢淡入。
+    //   第 2 輪：開著環境遮蔽太慢（> 25 毫秒）就淡出關掉；關著還是很慢（> 36 毫秒）才降解析度。
+    // 剛打開的 0.8 秒還在暖機不算；每輪量 0.6 秒（至少 6 格）。原本等到第 150 格才判斷，慢的手機要卡十幾秒、降解析度時還會閃一下。
     // 降解析度放在畫這一格之前做，畫布清空後馬上畫好，不會閃。
-    // 剛打開的 1.2 秒還在暖機（上傳模型、編譯），不算；之後量 40 格。
-    if (perf.step < 2) {
-      perf.t += dt;
-      if (perf.t > 1.2) perf.d.push(dt);
-      if (perf.d.length >= 40) {
-        // 平均（去掉最慢的兩格：單次編譯不算；但不時就卡一下要算進去，那正是看起來卡的原因，所以不用中位數）
-        const ds = perf.d.sort((a, b) => a - b).slice(0, -2);
-        const med = ds.reduce((a, b) => a + b, 0) / ds.length;
-        if (location.search.includes('perf')) console.log('[perf]', perf.step, (med * 1000).toFixed(1), 'ms', gtao.enabled, renderer.getPixelRatio());
-        if (perf.step === 0 && med > 1 / 40 && gtao.enabled) gtao.enabled = false;
-        else if (med > 1 / 28 && renderer.getPixelRatio() > 1) {
-          renderer.setPixelRatio(1);
-          resize();
-          perf.step = 1;
+    {
+      const raw = perf.last ? (now - perf.last) / 1000 : 0;
+      perf.last = now;
+      if (perf.step < 2 && raw > 0) {
+        perf.t += raw;
+        if (perf.t > 0.8) perf.d.push(raw);
+        const span = perf.d.reduce((a, b) => a + b, 0);
+        if (perf.d.length >= 6 && span >= 0.6) {
+          // 平均（去掉最慢的一格：單次編譯不算；不時就卡一下要算進去，那正是看起來卡的原因，所以不用中位數）
+          const ds = perf.d.sort((a, b) => a - b).slice(0, -1);
+          const avg = ds.reduce((a, b) => a + b, 0) / ds.length;
+          if (location.search.includes('perf')) console.log('[perf]', perf.step, (avg * 1000).toFixed(1), 'ms', 'ao', perf.ao, 'dpr', renderer.getPixelRatio().toFixed(2));
+          if (perf.step === 0) {
+            if (avg < 1 / 50) perf.ao = 1;
+            else if (avg > 1 / 28 && renderer.getPixelRatio() > 1) {
+              perf.cap = 1;
+              resize();
+              perf.step = 1;
+            }
+          } else if (perf.ao && avg > 1 / 40) perf.ao = 0;
+          else if (!perf.ao && avg > 1 / 28 && renderer.getPixelRatio() > 1) {
+            perf.cap = 1;
+            resize();
+          }
+          perf.step++;
+          perf.t = 0.5; // 下一輪等 0.3 秒（剛打開環境遮蔽，讓它穩一下）
+          perf.d = [];
         }
-        perf.step++;
-        perf.t = 1; // 下一輪只等 0.2 秒（剛關掉環境遮蔽，讓它穩一下）
-        perf.d = [];
       }
+      // 環境遮蔽淡入淡出
+      gtao.blendIntensity += (perf.ao - gtao.blendIntensity) * (1 - Math.exp(-dt * 4));
+      gtao.enabled = perf.ao > 0 || gtao.blendIntensity > 0.01;
     }
     composer.render();
     raf = requestAnimationFrame(tick);
@@ -1320,6 +1338,12 @@ ${
     .catch(() => {})
     .finally(() => {
       if (!alive) return;
+      // 環境遮蔽、光暈也先畫一次（著色器、暫存畫面先準備好），之後打開時才不會卡一下
+      const bl = bloom.enabled;
+      gtao.enabled = bloom.enabled = true;
+      composer.render();
+      gtao.enabled = perf.ao > 0;
+      bloom.enabled = bl;
       $('#loading').classList.add('done');
       later(() => $('#loading')?.remove(), 600);
       raf = requestAnimationFrame(tick);
