@@ -71,15 +71,15 @@ export default {
   ao: 0.3,
   // 燈光：每一組可以各自開關。color 是燈光面板上圖示亮起來的顏色
   LIGHTS: [
-    {id: 'head', name: ['頭燈', 'Headlights'], say: ['晚上開車要打開頭燈，才看得到前面的路，別人也看得到公車。', 'At night the driver turns on the headlights to see the road, and so others can see the bus.'], color: '#ffe9a8', view: [1, 0.35, 0.25],
+    {id: 'head', name: ['頭燈', 'Headlights'], say: ['晚上開車要打開頭燈，才看得到前面的路，別人也看得到公車。', 'At night the driver turns on the headlights to see the road, and so others can see the bus.'], color: '#ffe9a8', view: [1, 0.35, -0.25],
       icon: '<path d="M3.5 8h5a4 4 0 0 1 0 8h-5z"/><path d="M14 9l6.5-1.5M14 12h7M14 15l6.5 1.5"/>'},
     {id: 'turn', name: ['方向燈', 'Turn signals'], say: ['要轉彎的時候，方向燈會一閃一閃，告訴大家公車要轉彎了。', 'Before turning, the turn signals blink to tell everyone the bus is about to turn.'], color: '#ffb02e', mode: 'blink',
       icon: '<path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/>'},
-    {id: 'tail', name: ['尾燈', 'Tail lights'], say: ['尾燈是紅色的，讓後面的車知道前面有一台公車。車牌上面還有一顆小燈照著車牌。', 'The red tail lights tell cars behind that a bus is ahead. A little lamp lights up the license plate too.'], color: '#ff4a3a', view: [-1, 0.35, 0.3],
+    {id: 'tail', name: ['尾燈', 'Tail lights'], say: ['尾燈是紅色的，讓後面的車知道前面有一台公車。車牌上面還有一顆小燈照著車牌。', 'The red tail lights tell cars behind that a bus is ahead. A little lamp lights up the license plate too.'], color: '#ff4a3a', view: [-1, 0.35, -0.3],
       icon: '<rect x="7" y="4.5" width="10" height="15" rx="2.5"/><circle cx="12" cy="9.5" r="2"/><circle cx="12" cy="15" r="1.4"/>'},
     {id: 'sign', name: ['路線牌', 'Route signs'], say: ['路線牌的小燈排成字，晚上也看得清楚是幾號公車、要開去哪裡。', 'The tiny lights in the route signs spell out the number and the destination, easy to read at night.'], color: '#ff9a2e',
       icon: '<rect x="2.5" y="7" width="19" height="10" rx="2"/><path d="M6 12h.01M9 12h.01M12 12h.01M15 12h.01M18 12h.01" stroke-width="2.6"/>'},
-    {id: 'cabin', name: ['車內燈', 'Cabin lights'], say: ['車子裡面的燈打開，晚上上車才看得清楚，也比較安全。', 'With the cabin lights on, people can see where they’re going when they get on at night.'], color: '#fff1d6', view: [0.5, 1, 0.9],
+    {id: 'cabin', name: ['車內燈', 'Cabin lights'], say: ['車子裡面的燈打開，晚上上車才看得清楚，也比較安全。', 'With the cabin lights on, people can see where they’re going when they get on at night.'], color: '#fff1d6', view: [0.5, 1, -0.9],
       icon: '<path d="M4 6h16"/><path d="M8 6v2.5h8V6"/><path d="M7 12l-2 6M17 12l2 6M12 11.5V18" opacity=".55"/>'},
   ],
   // 地上的光斑：頭燈照在前面、尾燈在後面映一點紅
@@ -90,7 +90,7 @@ export default {
   groundMarks: `m = max(m, step(abs(vW.z + 1.95), 0.06) * step(mod(x, 6.0), 3.0));
         m = max(m, step(abs(vW.z - 2.05), 0.06));`,
   groundFade: ['0.55, 1.0', '5.5, 13.0'],
-  cam: {min: 4, max: 48, home: [0.78, 0.36, 0.86], explode: [0.62, 0.95, 0.8], r: [5.0, 4.6], rh: [6.0, 4.2], target: (ex) => [0, 1.3 + 0.7 * ex, -0.9 * ex]},
+  cam: {min: 4, max: 48, home: [0.78, 0.36, -0.86], explode: [0.62, 0.95, -0.8], r: [5.0, 4.6], rh: [6.0, 4.2], target: (ex) => [0, 1.3 + 0.7 * ex, 0.9 * ex]},
   actions: [
     {id: 'drive', icon: ICONS.drive, label: ['開車', 'Drive']},
     {id: 'door', icon: ICONS.door, label: ['開門', 'Doors']},
@@ -239,6 +239,8 @@ export default {
         }
         V.doorOpen = !V.doorOpen;
         setBtn('door', V.doorOpen, V.doorOpen ? ['關門', 'Close'] : ['開門', 'Doors']);
+        // 預設從左前方看（和展廳縮圖、其他車一樣），車門和斜坡板在右邊：開門時鏡頭轉到右邊看車門，關門回到原本的角度
+        if (S.layer === 0) V.doorOpen ? ctx.look([2.4, 1.3, 0.6], 15 * Math.max(1, 0.9 / (innerWidth / innerHeight)), [0.42, 0.28, 0.86]) : ctx.goHome();
         sound.hiss();
         if (V.doorOpen) sayPair('公車先往右邊蹲低，再開門、放下斜坡板。', 'The bus kneels to the right, then opens the doors and puts out the ramp.');
         else sayPair('關門囉。', 'Doors closing.');

@@ -573,10 +573,10 @@ export function buildBus() {
     const out = skMeshes('roof', pm, (x, y, z) => [x, z + Math.sign(z) * Math.max(0, ROOF - y)]);
     out.push(mesh(rod([4.4, ROOF, 0.4], [4.25, ROOF + 0.18, 0.4], 0.008, 6), mat.black()));
     for (const z of [-0.72, 0.72]) out.push(mesh(span([-5.5, CEIL - 0.03, z - 0.05], [5.3, CEIL, z + 0.05], 0.01), mat.lamp('#fffbea', 0.55, 'cabin', 1.8)));
-    piece('roof', out, [0, 3.9, -2.6], 1);
+    piece('roof', out, [0, 3.9, 2.6], 1);
   }
   // ---- 冷氣機：車頂後半一個長長的扁殼，上面四片出風格柵 ----
-  piece('aircon', skMeshes('aircon', null), [0, 4.8, -2.8], 0);
+  piece('aircon', skMeshes('aircon', null), [0, 4.8, 2.8], 0);
 
   // ---- 側面：外殼（貼塗裝）、整條黑色窗帶和玻璃、側邊燈 ----
   const arches = [AX_F, AX_R];
@@ -745,7 +745,7 @@ export function buildBus() {
       l.userData.light = 'cabin';
       return l;
     });
-    piece('floor', [mesh(merge(g), fm), mesh(merge(humps), mat.plastic('#2c2e31', 0.8)), mesh(merge(yel), y), wc, ...wcGear, archLiners(), ...cabinLights], [0, 1.3, -1.5], 5);
+    piece('floor', [mesh(merge(g), fm), mesh(merge(humps), mat.plastic('#2c2e31', 0.8)), mesh(merge(yel), y), wc, ...wcGear, archLiners(), ...cabinLights], [0, 1.3, 1.5], 5);
   }
 
   // ---- 座椅：照實車（臺北客運 HINO 弘鉅車體）24 個座位。紅色坐墊靠背、灰色背殼、上面不鏽鋼握把（Blender 做的樣板） ----
@@ -779,7 +779,7 @@ export function buildBus() {
       seatColors.push(c.clone());
     });
     for (const im of [cushion, shellI, metalI, grabI]) im.castShadow = im.receiveShadow = true;
-    piece('seats', [cushion, shellI, metalI, grabI], [0, 2.3, -2.0], 4);
+    piece('seats', [cushion, shellI, metalI, grabI], [0, 2.3, 2.0], 4);
     parts.seats.count = spots.length;
     seatColorsOut = seatColors;
   }
@@ -792,7 +792,7 @@ export function buildBus() {
     const g = poles.map(([x, z]) => cylY(0.019, floorAt(x), RAIL_Y, x, z, 14));
     for (const z of [-0.42, 0.42]) g.push(cylX(0.017, 8.9, 0.2, RAIL_Y, z, 14));
     for (const x of [-4.1, -1.5, 1.2, 3.9]) for (const z of [-0.42, 0.42]) g.push(cylY(0.012, RAIL_Y, CEIL, x, z, 8));
-    piece('rails', [mesh(merge(g), mat.chrome())], [0, 3.0, -2.2], 3);
+    piece('rails', [mesh(merge(g), mat.chrome())], [0, 3.0, 2.2], 3);
     // 吊環：灰色皮帶＋三角形握把，掛在兩條長扶手上
     const band = merge(skGroups('strapT', 'band').map((g2) => skGeo(g2)));
     const tri = merge(skGroups('strapT', 'handle').map((g2) => skGeo(g2)));
@@ -811,18 +811,18 @@ export function buildBus() {
         i++;
       }
     sm.castShadow = rm.castShadow = true;
-    piece('straps', [sm, rm], [0, 3.0, -2.2], 3);
+    piece('straps', [sm, rm], [0, 3.0, 2.2], 3);
     parts.straps.count = n;
     // 下車鈴：柱子上的黃色小盒子，中間一顆紅色按鈕
     const bells = poles.map(([x, z]) => span([x - 0.04, 1.36, z - 0.035], [x + 0.04, 1.48, z + 0.035], 0.012));
     const b2 = poles.map(([x, z]) => cylX(0.024, 0.03, x + 0.05, 1.42, z, 16));
-    piece('bell', [mesh(merge(bells), mat.plastic(COL.yellow, 0.4)), mesh(merge(b2), mat.lamp('#d8352a', 0.35))], [0, 3.0, -2.2], 3);
+    piece('bell', [mesh(merge(bells), mat.plastic(COL.yellow, 0.4)), mesh(merge(b2), mat.lamp('#d8352a', 0.35))], [0, 3.0, 2.2], 3);
     const readers = [];
     for (const [x, z] of [[DOOR_F[0] - 0.06, 0.98], [DOOR_R[1] + 0.06, 0.98]]) {
       readers.push(mesh(span([x - 0.08, 1.0, z - 0.14], [x + 0.08, 1.24, z - 0.03], 0.02), mat.plastic(COL.yellow, 0.45)));
       readers.push(mesh(span([x - 0.06, 1.1, z - 0.032], [x + 0.06, 1.2, z - 0.025], 0.005), mat.lamp('#3ccf7a', 0.5)));
     }
-    piece('reader', readers, [0, 2.6, -1.6], 3);
+    piece('reader', readers, [0, 2.6, 1.6], 3);
   }
 
   // ---- 駕駛座和方向盤 ----
@@ -861,7 +861,7 @@ export function buildBus() {
     face.add(steering);
     tilt.add(face);
     out.push(tilt);
-    piece('driver', out, [1.1, 2.3, -2.0], 4);
+    piece('driver', out, [1.1, 2.3, 2.0], 4);
   }
 
   // ---- 斜坡板 ----
@@ -874,7 +874,7 @@ export function buildBus() {
     for (let i = 0; i < 9; i++) ribs.push(span([-0.45, 0.0, 0.12 + i * 0.075], [0.45, 0.006, 0.14 + i * 0.075], 0.002));
     ramp.add(plate, edge, edge2, mesh(merge(ribs), mat.plastic('#7a7e83', 0.5)));
     ramp.position.set((DOOR_R[0] + DOOR_R[1]) / 2, FLOOR + 0.004, RAMP_Z0);
-    piece('ramp', [ramp], [0, 1.35, -1.5], 5);
+    piece('ramp', [ramp], [0, 1.35, 1.5], 5);
   }
 
   // ---- 底盤大樑 ----
@@ -1226,12 +1226,12 @@ export function buildBus() {
       for (let x = a + 0.2; x < b - 0.1; x += 0.25) ribs.push(span([x - 0.02, ROOF + 0.24, -0.8], [x + 0.02, ROOF + 0.265, 0.8], 0.006));
     }
     const cable = [rod([-2.25, ROOF + 0.12, 0.7], [-0.75, ROOF + 0.12, 0.7], 0.025, 8), rod([-2.25, ROOF + 0.12, -0.7], [-2.0, ROOF + 0.12, -0.7], 0.025, 8)];
-    piece('roofBattery', [mesh(merge(packs), mat.plastic('#d9dcdf', 0.45)), mesh(merge(ribs), mat.plastic('#9fa5ab', 0.4)), mesh(merge(cable), HV)], [0, 4.8, -2.8], 0);
+    piece('roofBattery', [mesh(merge(packs), mat.plastic('#d9dcdf', 0.45)), mesh(merge(ribs), mat.plastic('#9fa5ab', 0.4)), mesh(merge(cable), HV)], [0, 4.8, 2.8], 0);
     // 控制器：車頂上一個有散熱片的箱子
     const ctl = [span([-2.1, ROOF - 0.01, -0.55], [-1.0, ROOF + 0.2, 0.55], 0.05)];
     const fins = [];
     for (let i = 0; i < 8; i++) fins.push(span([-2.0 + i * 0.13, ROOF + 0.2, -0.45], [-1.97 + i * 0.13, ROOF + 0.26, 0.45], 0.004));
-    piece('controller', [mesh(merge(ctl), mat.plastic('#3a3f45', 0.5)), mesh(merge(fins), mat.alu()), mesh(rod([-1.0, ROOF + 0.1, 0.4], [-0.75, ROOF + 0.12, 0.7], 0.025, 8), HV)], [0, 4.4, -2.6], 0);
+    piece('controller', [mesh(merge(ctl), mat.plastic('#3a3f45', 0.5)), mesh(merge(fins), mat.alu()), mesh(rod([-1.0, ROOF + 0.1, 0.4], [-0.75, ROOF + 0.12, 0.7], 0.025, 8), HV)], [0, 4.4, 2.6], 0);
   }
   {
     // 車尾電池：原本引擎的位置，上下兩層
