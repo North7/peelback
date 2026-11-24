@@ -47,7 +47,7 @@ export default {
     <p class="src">${HP(
       ev
         ? ['電動版的電池、馬達、控制器位置，照一般低地板電動公車的配置簡化，不是特定車型。電動公車數量取自臺北市政府主計處統計。', 'The electric version’s batteries, motor and controller are placed like a typical low-floor electric bus, not one exact model. Bus counts are from Taipei City Government statistics.']
-        : ['日野 HS8JRVL-UTF（弘鉅車體）。尺寸、引擎取自維基學院「臺北客運」車種表；車高為估計值，車裡零件的位置照一般後置引擎低地板公車的配置簡化。', 'Hino HS8JRVL-UTF. Size and engine are from the Taipei Bus fleet list on Wikiversity; the height is an estimate, and the parts inside are placed like a typical rear-engine low-floor bus.'],
+        : ['日野 HS8JRVL-UTF（弘鉅車體）。尺寸取自弘鉅汽車公開的規格（12.2 × 2.5 × 3.28 公尺、軸距 5.875 公尺），外型照臺北客運的實車照片做，引擎取自維基學院「臺北客運」車種表；座位照實車排成 24 個，底盤和引擎的位置照一般後置引擎低地板公車簡化。', 'Hino HS8JRVL-UTF with a Hongju body. Size is from the bodybuilder’s published specs (12.2 × 2.5 × 3.28 m, 5.875 m wheelbase), the look follows photos of real Taipei Bus buses, and the engine is from the Taipei Bus fleet list on Wikiversity. The 24 seats follow the real bus; the chassis and engine are placed like a typical rear-engine low-floor bus.'],
     )}</p>`;
   },
   LAYERS: [

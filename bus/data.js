@@ -3,11 +3,11 @@
 // 引擎缸徑衝程為日野 J08E 公開規格。車高頁面寫 1,730 mm 明顯有誤，這裡用 3.15 m 的估計值並標明。
 
 export const SPEC = {
-  length: 12.16, // m
+  length: 12.2, // m（弘鉅公開規格 12200 × 2500 × 3280）
   width: 2.5,
-  height: 3.15, // 估計
-  wheelbase: 5.87,
-  frontOverhang: 2.6, // 估計，車長減軸距後前後分配
+  height: 3.28, // 含車頂冷氣機
+  wheelbase: 5.875,
+  frontOverhang: 2.955, // 車長 − 軸距 − 後懸 3370
   tireD: 0.9565, // 275/70R22.5：571.5 mm 鋼圈 + 2 × 192.5 mm 胎壁
   bore: 0.112,
   stroke: 0.13,

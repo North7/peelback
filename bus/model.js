@@ -6,6 +6,41 @@ import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {SPEC} from './data.js';
+import {unzlibSync} from 'three/addons/libs/fflate.module.js';
+import SK_ZIP from './sk/bus.bin';
+import SK_META from './sk/bus.json';
+// 外殼、車頭車尾、後照鏡、車門：tools/bus_build.py 在 Blender 照實車照片建的（弘鉅車體 HINO HS8JRVL-UTF）
+const SK_BIN = unzlibSync(SK_ZIP);
+function skGeo(g) {
+  const q = new Uint16Array(SK_BIN.buffer, SK_BIN.byteOffset + g.pos, g.nv * 3);
+  const pos = new Float32Array(g.nv * 3);
+  const [x0, y0, z0, sx, sy, sz] = g.q;
+  for (let i = 0; i < g.nv; i++) {
+    pos[i * 3] = x0 + q[i * 3] * sx;
+    pos[i * 3 + 1] = y0 + q[i * 3 + 1] * sy;
+    pos[i * 3 + 2] = z0 + q[i * 3 + 2] * sz;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const o = SK_BIN.byteOffset;
+  geo.setIndex(new THREE.BufferAttribute(g.idx16 !== undefined ? new Uint16Array(SK_BIN.buffer, o + g.idx16, g.ni) : new Uint32Array(SK_BIN.buffer, o + g.idx, g.ni), 1));
+  geo.computeVertexNormals();
+  return geo;
+}
+/** 某個零件的幾組網格（tag 篩材質） */
+const skGroups = (part, tag = null) => SK_META.groups.filter((g) => g.part === part && (tag === null || g.tag === tag || (tag instanceof RegExp && tag.test(g.tag))));
+/** 照位置算貼圖座標 */
+function withUV(geo, fn) {
+  const p = geo.attributes.position;
+  const uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) {
+    const [u, v] = fn(p.getX(i), p.getY(i), p.getZ(i));
+    uv[i * 2] = u;
+    uv[i * 2 + 1] = v;
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return geo;
+}
 
 const L = SPEC.length / 2; // 6.08
 export const AX_F = L - SPEC.frontOverhang; // 3.48
@@ -15,15 +50,15 @@ const W = SPEC.width / 2; // 1.25
 const FLOOR = SPEC.floor; // 0.34
 const RAISED = 0.78;
 const TOP = 1.25;
-const BELT = 1.22; // 窗戶下緣
-const ROOF = 3.0;
+const BELT = 1.28; // 窗戶下緣（照實車照片量）
+const ROOF = 3.02;
 const RC = 0.34; // 車頂兩側的圓角半徑
-const WIN_TOP = ROOF - RC; // 2.66：窗戶上緣剛好接到車頂圓弧
+const WIN_TOP = 2.78; // 窗戶上緣
 const CEIL = 2.6;
-const SKIRT = 0.26;
+const SKIRT = 0.3;
 // 門的位置（右側，+z）
-export const DOOR_F = [4.8, 5.85];
-export const DOOR_R = [-1.78, -0.62];
+export const DOOR_F = [4.72, 5.86];
+export const DOOR_R = [-1.92, -0.52];
 export const RAMP_Z0 = W - 0.06 - 0.9;
 export const RAMP_Z1 = W + 0.01;
 // 引擎
@@ -35,7 +70,7 @@ const ROD = 0.21;
 
 const COL = {
   white: '#f5f4f0', orange: '#ef6a1c', red: '#c8281e', black: '#141516', glass: '#1d282f', tire: '#1b1c1e',
-  rim: '#d3d6da', chassis: '#2e3135', metal: '#7d838a', seat: '#2d4f8a', priority: '#c0392b', floor: '#5f646a',
+  rim: '#d3d6da', chassis: '#2e3135', metal: '#7d838a', seat: '#c8372d', priority: '#9e2620', floor: '#5f646a',
   yellow: '#f2c230', rubber: '#202123', alu: '#b8bcc1', blue: '#24479c',
 };
 
@@ -285,6 +320,83 @@ function frontLivery() {
   });
 }
 
+/** 車頭整面（下緣到車頂）：u = (W − z) / 2W（從前面看左邊是車的右側），v = (y − SKIRT) / (ROOF − SKIRT) */
+function frontPaint() {
+  const S = 240;
+  return canvasTex(2 * W * S, (ROOF - SKIRT) * S, (g, w, h) => {
+    const Y = (y) => h - (y - SKIRT) * S;
+    g.fillStyle = COL.white;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = COL.orange;
+    // 擋風玻璃上面整片橘色車頂帽
+    g.fillRect(0, 0, w, Y(2.6));
+    // 擋風玻璃下面一條橘線，兩邊往頭燈彎下去
+    g.fillRect(0, Y(1.13), w, 0.05 * S);
+    g.lineWidth = 0.035 * S;
+    g.strokeStyle = COL.orange;
+    g.beginPath();
+    g.moveTo(0.58 * S, Y(0.64));
+    g.quadraticCurveTo(w / 2, Y(0.52), w - 0.58 * S, Y(0.64));
+    g.stroke();
+    g.fillStyle = COL.red;
+    g.font = `700 ${0.16 * S}px ${KAI}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('臺 北 客 運', w / 2, Y(0.86));
+  });
+}
+/** 車頂（含兩側圓角）：u = x、v = z ± (ROOF − y)，單位公尺。前面 1.6 公尺是橘色車頂帽，後面兩側斜斜的藍白紅白藍色帶 */
+function roofPaint() {
+  const X0 = -6.2;
+  const X1 = 6.2;
+  const V0 = -1.7;
+  const V1 = 1.7;
+  const S = 80;
+  const t = canvasTex((X1 - X0) * S, (V1 - V0) * S, (g, w, h) => {
+    const X = (x) => (x - X0) * S;
+    const V = (v) => (v - V0) * S;
+    g.fillStyle = COL.white;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = COL.orange;
+    g.fillRect(X(4.5), 0, w - X(4.5), h);
+    for (const sgn of [-1, 1]) {
+      const a = sgn > 0 ? V(1.02) : V(-1.02);
+      const b = sgn > 0 ? V(1.7) : V(-1.7);
+      [[4.38, COL.blue], [4.18, COL.red], [3.98, COL.blue]].forEach(([x, c]) => {
+        g.fillStyle = c;
+        g.beginPath();
+        g.moveTo(X(x), a);
+        g.lineTo(X(x + 0.14), a);
+        g.lineTo(X(x + 0.14 - 0.18), b);
+        g.lineTo(X(x - 0.18), b);
+        g.closePath();
+        g.fill();
+      });
+    }
+  });
+  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+  t.repeat.set(1 / (X1 - X0), 1 / (V1 - V0));
+  t.offset.set(-X0 / (X1 - X0), -V0 / (V1 - V0));
+  return t;
+}
+/** 車尾整面：u = (z + W) / 2W（從後面看左邊是車的左側），v = (y − SKIRT) / (ROOF − SKIRT) */
+function rearPaint() {
+  const S = 200;
+  return canvasTex(2 * W * S, (ROOF - SKIRT) * S, (g, w, h) => {
+    const Y = (y) => h - (y - SKIRT) * S;
+    g.fillStyle = COL.white;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = COL.orange;
+    // 接著側面的粗橘帶（0.86–1.06）和上面一條細橘線
+    g.fillRect(0, Y(1.06), w, 0.2 * S);
+    g.fillRect(0, Y(1.16), w, 0.04 * S);
+    g.fillStyle = COL.red;
+    g.font = `700 ${0.11 * S}px ${KAI}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('臺北客運', w / 2, Y(2.3));
+  });
+}
 function plateTex(text) {
   return canvasTex(440, 140, (g, w, h) => {
     g.fillStyle = '#f4f6f2';
@@ -426,121 +538,54 @@ export function buildBus() {
     return g;
   };
 
-  // ---- 車頂：圓弧橫切面拉成一整條，裡面有兩條燈 ----
+  // ================= 外殼（Blender 照實車建的，tools/bus_build.py） =================
+  const HINGE_L = {pivot: [0, SKIRT, -W], angle: -Math.PI / 2};
+  const HINGE_R = {pivot: [0, SKIRT, W], angle: Math.PI / 2};
+  const innerM = mat.plastic('#dcdad4', 0.7);
+  const sideGlass = mat.glass(0.84);
+  /** 一組網格換成這裡的材質；paint 交給呼叫的人 */
+  const tagMat = {
+    frit: () => mat.gloss(),
+    glass: () => sideGlass,
+    inner: () => innerM,
+    orange: () => mat.orange(),
+    chrome: () => mat.chrome(),
+    mirror: () => mat.chrome(),
+    white: () => mat.paint(),
+    black: () => mat.black(),
+    rubber: () => mat.rubber(),
+    grey: () => mat.plastic('#a3a8ad', 0.4),
+    head: () => mat.lamp('#fff7e2', 0.6, 'head', 4),
+    pos: () => mat.lamp('#fff3d0', 0.35, 'head', 2.5),
+    turn: () => mat.lamp('#ffa13a', 0.5, 'turn', 3),
+    marker: () => mat.lamp('#ffa43a', 0.5, 'turn', 3),
+    tail: () => mat.lamp('#d22b1e', 0.5, 'tail', 3),
+    rev: () => mat.lamp('#f4f4f0', 0.04),
+  };
+  const skMeshes = (part, paint, uvFn = null, skip = []) =>
+    skGroups(part)
+      .filter((g) => !skip.includes(g.tag))
+      .map((g) => {
+        if (g.tag === 'paint') return mesh(uvFn ? withUV(skGeo(g), uvFn) : skGeo(g), paint);
+        const f = tagMat[g.tag];
+        return f ? mesh(skGeo(g), f()) : null;
+      })
+      .filter(Boolean);
+
+  // ---- 車頂：外殼的上半部、兩個逃生天窗，裡面有兩條燈 ----
   {
-    const shell = mesh(extrudeX(bodyShape(CEIL, ROOF), -5.94, 5.92, 0.02, 24), mat.paint());
-    const out = [shell];
-    // 車頂前端的藍紅藍色帶，包過兩側的圓角
-    const bandShape = (inset) => {
-      const sh = bodyShape(WIN_TOP - 0.02, ROOF, -0.024);
-      sh.holes.push(new THREE.Path(bodyShape(WIN_TOP - 0.01, ROOF, inset).getPoints(40).reverse()));
-      return sh;
-    };
-    const ring = bandShape(-0.008);
-    for (const [x, c] of [[4.62, COL.blue], [4.84, COL.red], [5.06, COL.blue]]) {
-      out.push(mesh(extrudeX(ring, x, x + 0.16, 0, 24), mat.plastic(c, 0.35)));
-    }
-    // 雨溝
-    for (const s of [-1, 1]) out.push(mesh(span([-5.9, WIN_TOP - 0.03, s * (W + 0.026) - 0.01], [5.85, WIN_TOP, s * (W + 0.026) + 0.01], 0.008), mat.plastic('#9a9ea3', 0.4)));
-    // 逃生天窗和天線
-    for (const x of [3.2, -2.9]) out.push(mesh(span([x - 0.38, ROOF - 0.01, -0.38], [x + 0.38, ROOF + 0.05, 0.38], 0.03), mat.plastic('#d9dad6', 0.4)));
+    const pm = mat.paint();
+    pm.map = roofPaint();
+    const out = skMeshes('roof', pm, (x, y, z) => [x, z + Math.sign(z) * Math.max(0, ROOF - y)]);
     out.push(mesh(rod([4.4, ROOF, 0.4], [4.25, ROOF + 0.18, 0.4], 0.008, 6), mat.black()));
-    // 天花板的燈條
     for (const z of [-0.72, 0.72]) out.push(mesh(span([-5.5, CEIL - 0.03, z - 0.05], [5.3, CEIL, z + 0.05], 0.01), mat.lamp('#fffbea', 0.55, 'cabin', 1.8)));
     piece('roof', out, [0, 3.9, -2.6], 1);
   }
-  // ---- 冷氣機：前後有斜面的扁殼，兩側有百葉 ----
-  {
-    const g = [];
-    const prof = new THREE.Shape();
-    // (x, y) 側面輪廓，往 z 方向拉寬
-    prof.moveTo(-0.7, 0);
-    prof.lineTo(-0.55, 0.2);
-    prof.lineTo(2.2, 0.2);
-    prof.lineTo(2.45, 0);
-    prof.closePath();
-    const body = new THREE.ExtrudeGeometry(prof, {depth: 1.86, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 3, curveSegments: 4});
-    body.translate(0, ROOF - 0.02, -0.93);
-    g.push(mesh(body, mat.plastic('#e7e7e2', 0.35)));
-    const louv = [];
-    for (const s of [-1, 1]) for (let i = 0; i < 14; i++) louv.push(span([-0.3 + i * 0.17, ROOF + 0.03, s * 0.975 - 0.006], [-0.22 + i * 0.17, ROOF + 0.16, s * 0.975 + 0.006], 0.004));
-    g.push(mesh(merge(louv), mat.plastic('#5b5f64', 0.5)));
-    const fan = mat.plastic('#2a2d31', 0.5);
-    for (const x of [0.25, 1.45]) {
-      g.push(mesh(cylY(0.3, ROOF + 0.2, ROOF + 0.225, x, 0, 40), fan));
-      const grill = [];
-      for (let i = 0; i < 6; i++) {
-        const b = span([-0.29, 0, -0.006], [0.29, 0.01, 0.006], 0.002);
-        b.rotateY((i / 6) * Math.PI);
-        b.translate(x, ROOF + 0.228, 0);
-        grill.push(b);
-      }
-      g.push(mesh(merge(grill), mat.plastic('#8b9095', 0.4)));
-    }
-    piece('aircon', g, [0, 4.8, -2.8], 0);
-  }
+  // ---- 冷氣機：車頂後半一個長長的扁殼，上面四片出風格柵 ----
+  piece('aircon', skMeshes('aircon', null), [0, 4.8, -2.8], 0);
 
-  // ---- 側面車身 ----
+  // ---- 側面：外殼（貼塗裝）、整條黑色窗帶和玻璃、側邊燈 ----
   const arches = [AX_F, AX_R];
-  const HINGE_L = {pivot: [0, SKIRT, -W], angle: -Math.PI / 2};
-  const HINGE_R = {pivot: [0, SKIRT, W], angle: Math.PI / 2};
-  const sideShape = (x0, x1, archList) => {
-    const sh = new THREE.Shape();
-    const R = 0.6;
-    sh.moveTo(x0, SKIRT);
-    for (const ax of archList.filter((a) => a > x0 && a < x1).sort((a, b) => a - b)) {
-      sh.lineTo(ax - R, SKIRT);
-      sh.lineTo(ax - R, R_TIRE);
-      sh.absarc(ax, R_TIRE, R, Math.PI, 0, true);
-      sh.lineTo(ax + R, SKIRT);
-    }
-    sh.lineTo(x1, SKIRT);
-    sh.lineTo(x1, BELT);
-    sh.lineTo(x0, BELT);
-    sh.closePath();
-    return sh;
-  };
-  const extr = (sh) => new THREE.ExtrudeGeometry(sh, {depth: 0.04, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.008, bevelSegments: 3, curveSegments: 32});
-  /** 車窗：每格一塊玻璃，黑色窗框和粗窗柱，上面 0.4 m 是可以推開的小氣窗。 */
-  const windowBand = (segments, s, {driver = false} = {}) => {
-    const glass = mat.glass(0.74);
-    const glassTop = mat.glass(0.62);
-    const frames = [];
-    const panes = [];
-    const tops = [];
-    const z = s * W;
-    for (const [x0, x1] of segments) {
-      frames.push(span([x0, BELT, z - 0.028], [x1, BELT + 0.07, z + 0.028], 0.012));
-      frames.push(span([x0, WIN_TOP - 0.07, z - 0.028], [x1, WIN_TOP + 0.005, z + 0.028], 0.012));
-      const n = Math.max(1, Math.round((x1 - x0) / 1.25));
-      const xs = Array.from({length: n + 1}, (_, i) => x0 + ((x1 - x0) * i) / n);
-      for (const x of xs) frames.push(span([x - 0.05, BELT, z - 0.03], [x + 0.05, WIN_TOP, z + 0.03], 0.014));
-      for (let i = 0; i < n; i++) {
-        const a = xs[i] + 0.05;
-        const b = xs[i + 1] - 0.05;
-        // 小氣窗的橫框
-        frames.push(span([a, WIN_TOP - 0.46, z - 0.026], [b, WIN_TOP - 0.42, z + 0.026], 0.006));
-        // 小氣窗分成兩片，中間一條直框
-        frames.push(span([(a + b) / 2 - 0.018, WIN_TOP - 0.44, z - 0.026], [(a + b) / 2 + 0.018, WIN_TOP - 0.05, z + 0.026], 0.006));
-        panes.push(span([a, BELT + 0.06, z - 0.012], [b, WIN_TOP - 0.44, z + 0.012], 0.006));
-        tops.push(span([a, WIN_TOP - 0.44, z - 0.016], [b, WIN_TOP - 0.06, z + 0.008], 0.006));
-      }
-    }
-    if (driver) {
-      // 司機窗：前半片往後滑
-      frames.push(span([5.15 - 0.02, BELT + 0.05, z - 0.03], [5.15 + 0.02, WIN_TOP - 0.05, z + 0.03], 0.006));
-    }
-    return [mesh(merge(frames), mat.gloss()), mesh(merge(panes), glass), mesh(merge(tops), glassTop)];
-  };
-  const archTrim = (s) => {
-    const out = [];
-    for (const ax of arches) {
-      const t = new THREE.TorusGeometry(0.61, 0.022, 8, 32, Math.PI);
-      t.translate(ax, R_TIRE, s * (W + 0.006));
-      out.push(t);
-    }
-    return mesh(merge(out), mat.rubber());
-  };
   const archLiners = () => {
     const out = [];
     for (const ax of arches)
@@ -552,18 +597,21 @@ export function buildBus() {
       }
     return mesh(merge(out), new THREE.MeshBasicMaterial({color: '#151617', side: THREE.DoubleSide}));
   };
-  const markers = (s, xs) => {
-    const g = xs.map((x) => span([x - 0.05, 0.45, s * W - 0.01], [x + 0.05, 0.5, s * W + s * 0.018], 0.012));
-    return mesh(merge(g), mat.lamp('#ffa43a', 0.5, 'turn', 3));
+  const archTrim = (s) => {
+    const out = [];
+    for (const ax of arches) {
+      const t = new THREE.TorusGeometry(0.615, 0.02, 8, 40, Math.PI);
+      t.translate(ax, R_TIRE + 0.02, s * (W + 0.004));
+      out.push(t);
+    }
+    return mesh(merge(out), mat.rubber());
   };
   {
     const m = mat.paint();
     m.map = sideLivery(true);
-    const lower = mesh(extr(sideShape(-5.96, 5.92, arches)), m);
-    lower.position.z = -W;
     const sideT = ledTex([{t: '852', bold: true, size: 14, gap: 4, color: '#ff3b2a'}], 26, 16, 12);
     const sm = mesh(new THREE.PlaneGeometry(0.42, 0.26), ledMat(new THREE.MeshStandardMaterial({map: sideT, emissive: '#ffffff', emissiveMap: sideT, emissiveIntensity: 0.9})));
-    sm.position.set(-4.9, BELT + 0.55, -W - 0.034);
+    sm.position.set(-4.9, BELT + 0.6, -W - 0.004);
     sm.rotation.y = Math.PI;
     const nameT = canvasTex(512, 64, (g, w, h) => {
       g.fillStyle = '#ffffff';
@@ -572,66 +620,36 @@ export function buildBus() {
       g.fillText('臺北客運  KKA-0852', 6, h / 2);
     });
     const nm = mesh(new THREE.PlaneGeometry(0.9, 0.11), new THREE.MeshBasicMaterial({map: nameT, transparent: true}));
-    nm.position.set(-4.85, WIN_TOP - 0.16, -W - 0.034);
+    nm.position.set(-4.75, WIN_TOP - 0.15, -W - 0.006);
     nm.rotation.y = Math.PI;
-    piece('sideL', [lower, archTrim(-1), markers(-1, [4.8, 2.3, 0.6, -0.9, -3.6, -5.4]), sm, nm,
-      ...windowBand([[-5.88, 4.5], [4.5, 5.9]], -1, {driver: true})], [0, -0.2, -1.0], 2, sprung, HINGE_L);
+    piece('sideL', [...skMeshes('sideL', m, (x, y) => [x, y]), archTrim(-1), sm, nm], [0, -0.2, -1.0], 2, sprung, HINGE_L);
   }
   {
-    // 右邊：被兩個門切成三段
     const m = mat.paint();
     m.map = sideLivery(false);
-    const segs = [[-5.96, DOOR_R[0]], [DOOR_R[1], DOOR_F[0]], [DOOR_F[1], 5.92]];
-    const lows = segs.map(([a, b]) => {
-      const o = mesh(extr(sideShape(a, b, arches)), m);
-      o.position.z = W - 0.04;
-      return o;
-    });
-    const header = mesh(merge([DOOR_F, DOOR_R].map(([a, b]) => span([a, WIN_TOP - 0.1, W - 0.04], [b, WIN_TOP, W], 0.01))), mat.paint());
     // 門上方的提示燈
-    const dl = mesh(merge([DOOR_F, DOOR_R].map(([a, b]) => span([(a + b) / 2 - 0.12, WIN_TOP - 0.08, W], [(a + b) / 2 + 0.12, WIN_TOP - 0.03, W + 0.02], 0.01))), mat.lamp('#ffb02e', 0.35, 'cabin', 2));
-    piece('sideR', [...lows, header, dl, archTrim(1), markers(1, [2.3, 0.6, -3.6, -5.4]),
-      ...windowBand([[-5.88, DOOR_R[0]], [DOOR_R[1], DOOR_F[0]]], 1)], [0, -0.2, 1.0], 2, sprung, HINGE_R);
+    const dl = mesh(merge([DOOR_F, DOOR_R].map(([a, b]) => span([(a + b) / 2 - 0.12, WIN_TOP + 0.01, W - 0.01], [(a + b) / 2 + 0.12, WIN_TOP + 0.05, W + 0.012], 0.01))), mat.lamp('#ffb02e', 0.35, 'cabin', 2));
+    piece('sideR', [...skMeshes('sideR', m, (x, y) => [x, y]), dl, archTrim(1)], [0, -0.2, 1.0], 2, sprung, HINGE_R);
   }
+  // ---- 擋泥板 ----
+  piece('mudflaps', skMeshes('mudflaps', null), [0, 0.2, 0], 2);
 
-  // ---- 擋泥板：每個輪子後面一片黑色橡膠，下面有一排細溝 ----
-  {
-    const flaps = [];
-    const ribs = [];
-    for (const ax of arches)
-      for (const s of [-1, 1]) {
-        const x = ax - 0.64;
-        flaps.push(span([x - 0.025, 0.12, s * (W - 0.32)], [x + 0.005, 0.5, s * (W - 0.04)], 0.012));
-        for (let i = 0; i < 5; i++) ribs.push(span([x - 0.03, 0.14 + i * 0.07, s * (W - 0.3)], [x - 0.02, 0.16 + i * 0.07, s * (W - 0.06)], 0.004));
-      }
-    piece('mudflaps', [mesh(merge(flaps), mat.rubber()), mesh(merge(ribs), mat.plastic('#3a3c3f', 0.8))], [0, 0.2, 0], 2);
-  }
-
-  // ---- 車門：玻璃門，黑框，中間有橡膠條 ----
+  // ---- 車門：兩扇玻璃門，黑框、中間橡膠條，開門時往兩邊滑開 ----
   const doorLeaves = [];
   {
     const leafMeshes = [];
-    const frame = mat.gloss();
-    const glass = mat.glass(0.45);
-    const rub = mat.rubber();
-    for (const [a, b] of [DOOR_F, DOOR_R]) {
+    const glassD = mat.glass(0.45);
+    for (const [di, [a, b]] of [DOOR_F, DOOR_R].entries()) {
       const w = (b - a) / 2;
       for (const k of [0, 1]) {
         const g = new THREE.Group();
-        const x0 = a + k * w;
-        const z = W + 0.012;
-        const fr = [
-          span([x0 + 0.01, SKIRT + 0.05, z - 0.02], [x0 + w - 0.01, SKIRT + 0.13, z + 0.02], 0.01),
-          span([x0 + 0.01, WIN_TOP - 0.18, z - 0.02], [x0 + w - 0.01, WIN_TOP - 0.11, z + 0.02], 0.01),
-          span([x0 + 0.01, SKIRT + 0.05, z - 0.02], [x0 + 0.06, WIN_TOP - 0.11, z + 0.02], 0.01),
-          span([x0 + w - 0.06, SKIRT + 0.05, z - 0.02], [x0 + w - 0.01, WIN_TOP - 0.11, z + 0.02], 0.01),
-          span([x0 + 0.06, 1.0, z - 0.016], [x0 + w - 0.06, 1.05, z + 0.016], 0.008),
-        ];
-        g.add(mesh(merge(fr), frame));
-        g.add(mesh(span([x0 + 0.05, SKIRT + 0.12, z - 0.008], [x0 + w - 0.05, WIN_TOP - 0.17, z + 0.008], 0.004), glass));
-        const edge = k === 0 ? x0 + w - 0.012 : x0 + 0.012;
-        g.add(mesh(span([edge - 0.012, SKIRT + 0.05, z - 0.025], [edge + 0.012, WIN_TOP - 0.11, z + 0.025], 0.01), rub));
-        g.userData.dir = k === 0 ? -1 : 1;
+        const tag = 'FM'[di] + k;
+        for (const sg of skGroups('doors', new RegExp('^' + tag + '\\|'))) {
+          const kind = sg.tag.split('|')[1];
+          g.add(mesh(skGeo(sg), kind === 'glass' ? glassD : kind === 'rubber' ? mat.rubber() : kind === 'chrome' ? mat.chrome() : mat.gloss()));
+        }
+        // k = 0 是前面那扇（往前滑），k = 1 往後滑
+        g.userData.dir = k === 0 ? 1 : -1;
         g.userData.w = w;
         doorLeaves.push(g);
         leafMeshes.push(g);
@@ -640,154 +658,46 @@ export function buildBus() {
     piece('doors', leafMeshes, [0, -0.05, 1.0], 2, sprung, HINGE_R);
   }
 
-  // ---- 車頭 ----
+  // ---- 車頭：外殼（貼塗裝）、黑框、擋風玻璃、橘色頭燈殼、保險桿、雨刷、車牌 ----
   {
-    const out = [];
-    // 下半部白色面板（貼塗裝）
-    out.push(mesh(span([5.9, SKIRT, -W], [6.08, 1.12, W], 0.09, 4), mat.paint()));
-    const liv = new THREE.Mesh(new THREE.PlaneGeometry(2.44, 1.1 - SKIRT), new THREE.MeshPhysicalMaterial({map: frontLivery(), roughness: 0.48, clearcoat: 0.3, clearcoatRoughness: 0.32, envMapIntensity: 0.75}));
-    liv.rotation.y = Math.PI / 2;
-    liv.position.set(6.083, (1.1 + SKIRT) / 2, 0);
-    out.push(liv);
-    // 黑色整片前窗框，兩側是橘色 A 柱
-    // 黑框只圍一圈（上面放路線牌），中間是透明的擋風玻璃，看得到司機和儀表板
-    {
-      const fr = [
-        span([5.96, 2.28, -W + 0.07], [6.06, WIN_TOP + 0.02, W - 0.07], 0.05),
-        span([5.96, 1.06, -W + 0.07], [6.06, 1.16, W - 0.07], 0.03),
-      ];
-      for (const s of [-1, 1]) fr.push(span([5.96, 1.06, s * (W - 0.07) - 0.06], [6.06, WIN_TOP + 0.02, s * (W - 0.07) + 0.06], 0.03));
-      out.push(mesh(merge(fr), mat.gloss()));
-    }
-    for (const s of [-1, 1]) out.push(mesh(span([5.9, 1.08, s * W - 0.08], [6.07, WIN_TOP + 0.02, s * W + 0.0], 0.04), mat.orange()));
-    // 車頂帽（橘色，和車頂同一個圓弧）
-    out.push(mesh(extrudeX(bodyShape(WIN_TOP - 0.02, ROOF), 5.9, 6.08, 0.03, 24), mat.orange()));
-    // 擋風玻璃：兩側往後包的曲面
-    {
-      const gw = new THREE.PlaneGeometry(2.3, 1.18, 30, 1);
-      const p = gw.attributes.position;
-      for (let i = 0; i < p.count; i++) {
-        const u = p.getX(i);
-        p.setZ(i, -0.05 * (u / 1.15) ** 4);
-      }
-      gw.computeVertexNormals();
-      gw.rotateY(Math.PI / 2);
-      const ws = mesh(gw, mat.glass(0.4));
-      ws.position.set(6.066, 1.72, 0);
-      ws.rotation.z = 0.03;
-      out.push(ws);
-    }
+    const pm = new THREE.MeshPhysicalMaterial({map: frontPaint(), roughness: 0.42, clearcoat: 0.3, clearcoatRoughness: 0.32, envMapIntensity: 0.75});
+    const out = skMeshes('front', pm, (x, y, z) => [(W - z) / (2 * W), (y - SKIRT) / (ROOF - SKIRT)], ['glass', 'plateF']);
+    for (const g of skGroups('front', 'glass')) out.push(mesh(skGeo(g), mat.glass(0.4)));
+    for (const g of skGroups('front', 'plateF')) out.push(mesh(withUV(skGeo(g), (x, y, z) => [(0.22 - z) / 0.44, (y - 0.33) / 0.14]), new THREE.MeshStandardMaterial({map: plateTex('KKA-0852'), roughness: 0.4})));
     // 遮陽橫條
-    out.push(mesh(span([6.05, 2.29, -W + 0.1], [6.075, 2.34, W - 0.1], 0.01), mat.black()));
+    out.push(mesh(span([6.05, 2.36, -W + 0.18], [6.072, 2.41, W - 0.18], 0.01), mat.black()));
     // 路線號碼牌（擋風玻璃左下，從車外看在左邊＝車的右側）
     {
-      const pm = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.16), new THREE.MeshBasicMaterial({map: placardTex('852')}));
-      pm.rotation.y = Math.PI / 2;
-      pm.position.set(6.062, 1.27, 0.8);
-      out.push(pm);
-    }
-    // 頭燈：橘框裡的黑色燈座，兩顆圓燈加一顆琥珀色方向燈
-    for (const s of [-1, 1]) {
-      const zc = s * 0.91;
-      out.push(mesh(span([6.07, 0.6, zc - 0.25], [6.11, 0.76, zc + 0.25], 0.06), mat.gloss()));
-      for (const dz of [-0.09, 0.07]) {
-        out.push(mesh(cylX(0.06, 0.02, 6.115, 0.68, zc + dz, 24), mat.chrome()));
-        out.push(mesh(cylX(0.045, 0.02, 6.12, 0.68, zc + dz, 24), mat.lamp('#fff7e2', 0.6, 'head', 4)));
-      }
-      out.push(mesh(cylX(0.035, 0.02, 6.115, 0.68, zc + s * 0.19, 16), mat.lamp('#ffa13a', 0.5, 'turn', 3)));
-      // 角落的小方向燈
-      out.push(mesh(span([5.98, 0.66, s * W - s * 0.02 - 0.03], [6.06, 0.72, s * W - s * 0.02 + 0.03], 0.01), mat.lamp('#ffa13a', 0.45, 'turn', 3)));
-    }
-    // 保險桿下緣、車牌
-    out.push(mesh(span([6.0, SKIRT - 0.02, -W + 0.04], [6.1, SKIRT + 0.08, W - 0.04], 0.04), mat.plastic('#2a2c2f', 0.5)));
-    {
-      const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.135), new THREE.MeshStandardMaterial({map: plateTex('KKA-0852'), roughness: 0.4}));
-      pl.rotation.y = Math.PI / 2;
-      pl.position.set(6.11, 0.44, 0);
-      out.push(pl);
-    }
-    // 雨刷：從下緣往中間收著
-    for (const s of [-1, 1]) {
-      const arm = rod([6.09, 1.14, s * 0.95], [6.09, 1.2, s * 0.02], 0.009, 6);
-      const blade = span([6.08, 1.16, s * 0.9], [6.1, 1.2, s * 0.05], 0.006);
-      blade.rotateX(0);
-      out.push(mesh(merge([arm, blade]), mat.black()));
+      const pmk = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.16), new THREE.MeshBasicMaterial({map: placardTex('852')}));
+      pmk.rotation.y = Math.PI / 2;
+      pmk.position.set(L - 0.035, 1.3, 0.8);
+      out.push(pmk);
     }
     piece('front', out, [2.7, 0.5, 0], 2);
   }
   // ---- 後照鏡（兔耳朵） ----
+  piece('mirrors', skMeshes('mirrors', null), [3.5, 0.9, 0], 3);
+  // ---- 路線牌：前面、後面、車門旁邊 ----
   {
-    const out = [];
-    const arm = mat.black();
-    for (const s of [-1, 1]) {
-      const c = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(6.0, 2.82, s * 1.12),
-        new THREE.Vector3(6.25, 2.92, s * 1.3),
-        new THREE.Vector3(6.5, 2.72, s * 1.34),
-        new THREE.Vector3(6.58, 2.32, s * 1.3),
-      ]);
-      out.push(mesh(new THREE.TubeGeometry(c, 24, 0.022, 10), arm));
-      out.push(mesh(span([6.52, 1.86, s * 1.3 - 0.12], [6.64, 2.34, s * 1.3 + 0.12], 0.06), mat.gloss()));
-      out.push(mesh(span([6.508, 1.9, s * 1.3 - 0.095], [6.52, 2.3, s * 1.3 + 0.095], 0.01), mat.chrome()));
-      out.push(mesh(span([6.508, 1.72, s * 1.3 - 0.07], [6.6, 1.84, s * 1.3 + 0.07], 0.03), mat.gloss()));
-    }
-    piece('mirrors', out, [3.5, 0.9, 0], 3);
-  }
-  // ---- 路線牌 ----
-  {
+    const ledM = (t) => ledMat(new THREE.MeshStandardMaterial({map: t, emissive: '#ffffff', emissiveMap: t, emissiveIntensity: 0.95, roughness: 0.3}));
     const front = ledTex([{t: '852', bold: true, size: 15, gap: 4, color: '#ff3b2a'}, {t: '樹林→北大社區', size: 13}], 136, 16, 12);
-    const fm = mesh(new THREE.PlaneGeometry(2.1, 0.28), ledMat(new THREE.MeshStandardMaterial({map: front, emissive: '#ffffff', emissiveMap: front, emissiveIntensity: 0.95, roughness: 0.3})));
-    fm.rotation.y = Math.PI / 2;
-    fm.position.set(6.072, 2.49, 0);
-    piece('sign', [fm], [3.5, 1.3, 0], 3);
-    const rearT = ledTex([{t: '852', bold: true, size: 15, color: '#ff3b2a'}], 30, 16, 12);
-    const rm = mesh(new THREE.PlaneGeometry(0.5, 0.27), ledMat(new THREE.MeshStandardMaterial({map: rearT, emissive: '#ffffff', emissiveMap: rearT, emissiveIntensity: 0.9})));
-    rm.rotation.y = -Math.PI / 2;
-    rm.position.set(-6.082, 2.36, -0.55);
-    piece('sign', [rm], [-4.2, 1.6, 0], 3);
+    piece('sign', skGroups('sign', 'signF').map((g) => mesh(withUV(skGeo(g), (x, y, z) => [(1.0 - z) / 2.0, (y - 2.67) / 0.26]), ledM(front))), [3.5, 1.3, 0], 3);
+    const rearT = ledTex([{t: '852', bold: true, size: 15, gap: 4, color: '#ff3b2a'}, {t: '北大社區', size: 13}], 100, 16, 12);
+    piece('sign', skGroups('sign', 'signR').map((g) => mesh(withUV(skGeo(g), (x, y, z) => [(z + 0.86) / 1.72, (y - 2.61) / 0.26]), ledM(rearT))), [-4.2, 1.6, 0], 3);
     const sideT = ledTex([{t: '852', bold: true, size: 14, gap: 3, color: '#ff3b2a'}, {t: '北大社區', size: 12}], 84, 16, 10);
-    const sm = mesh(new THREE.PlaneGeometry(1.26, 0.24), ledMat(new THREE.MeshStandardMaterial({map: sideT, emissive: '#ffffff', emissiveMap: sideT, emissiveIntensity: 0.9})));
-    sm.position.set(4.05, WIN_TOP - 0.24, W + 0.034);
+    const sm = mesh(new THREE.PlaneGeometry(1.26, 0.24), ledM(sideT));
+    sm.position.set(4.0, WIN_TOP - 0.22, W - 0.006);
     piece('sign', [sm], [0, -0.1, 1.0], 2, sprung, HINGE_R);
   }
 
-  // ---- 車尾 ----
+  // ---- 車尾：外殼（貼塗裝）、尾燈、引擎門的縫、保險桿、車牌 ----
   {
-    const out = [];
-    const sh = bodyShape(SKIRT, ROOF);
-    const hole = new THREE.Path();
-    hole.moveTo(-0.95, 1.9);
-    hole.lineTo(0.95, 1.9);
-    hole.lineTo(0.95, 2.52);
-    hole.lineTo(-0.95, 2.52);
-    hole.closePath();
-    sh.holes.push(hole);
-    out.push(mesh(extrudeX(sh, -6.08, -5.94, 0.03, 24), mat.paint()));
-    out.push(mesh(span([-6.07, 1.86, -1.0], [-6.02, 2.56, 1.0], 0.04), mat.gloss()));
-    out.push(mesh(span([-6.075, 1.92, -0.92], [-6.06, 2.5, 0.92], 0.01), mat.glass(0.7)));
-    // 引擎門：黑色百葉，兩邊有鉸鍊
-    out.push(mesh(span([-6.11, 0.5, -0.95], [-6.075, 1.4, 0.95], 0.03), mat.plastic('#1d1f22', 0.6)));
-    const slats = [];
-    for (let i = 0; i < 9; i++) slats.push(span([-6.125, 0.56 + i * 0.092, -0.88], [-6.105, 0.6 + i * 0.092, 0.88], 0.006));
-    out.push(mesh(merge(slats), mat.metal()));
-    // 尾燈：每邊直排三顆圓燈
-    for (const s of [-1, 1]) {
-      out.push(mesh(span([-6.11, 0.52, s * 1.1 - 0.11], [-6.075, 1.38, s * 1.1 + 0.11], 0.05), mat.gloss()));
-      [['#d22b1e', 1.22], ['#d22b1e', 1.0], ['#ffa13a', 0.78], ['#f4f4f0', 0.6]].forEach(([c, y]) => {
-        out.push(mesh(cylX(0.075, 0.02, -6.118, y, s * 1.1, 24), mat.chrome()));
-        // 紅色＝尾燈、琥珀色＝方向燈、白色＝倒車燈（不開）
-        const grp = c === '#d22b1e' ? 'tail' : c === '#ffa13a' ? 'turn' : null;
-        out.push(mesh(cylX(0.06, 0.02, -6.124, y, s * 1.1, 24), grp ? mat.lamp(c, 0.5, grp, 3) : mat.lamp(c, 0.04)));
-      });
-    }
-    out.push(mesh(span([-6.16, SKIRT - 0.02, -W + 0.04], [-6.04, SKIRT + 0.12, W - 0.04], 0.05), mat.plastic('#2a2c2f', 0.5)));
-    const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.135), new THREE.MeshStandardMaterial({map: plateTex('KKA-0852'), roughness: 0.4}));
-    pl.rotation.y = -Math.PI / 2;
-    pl.position.set(-6.13, 0.43, 0);
-    out.push(pl);
+    const pm = mat.paint();
+    pm.map = rearPaint();
+    const out = skMeshes('rear', pm, (x, y, z) => [(z + W) / (2 * W), (y - SKIRT) / (ROOF - SKIRT)], ['plateR']);
+    for (const g of skGroups('rear', 'plateR')) out.push(mesh(withUV(skGeo(g), (x, y, z) => [(z + 0.22) / 0.44, (y - 0.75) / 0.14]), new THREE.MeshStandardMaterial({map: plateTex('KKA-0852'), roughness: 0.4})));
     // 車牌燈：照亮車牌，跟尾燈一起開
-    out.push(mesh(span([-6.165, 0.53, -0.12], [-6.13, 0.56, 0.12], 0.01), mat.lamp('#ffffff', 0.04, 'tail', 2.2)));
-    out.push(mesh(span([-6.09, 1.5, -W + 0.06], [-6.07, 1.58, W - 0.06], 0.01), mat.orange()));
+    out.push(mesh(span([-L - 0.03, 0.91, -0.12], [-L - 0.005, 0.93, 0.12], 0.008), mat.lamp('#ffffff', 0.04, 'tail', 2.2)));
     piece('rear', out, [-3.8, 0.9, 0], 2);
   }
 
@@ -827,70 +737,60 @@ export function buildBus() {
     piece('floor', [mesh(merge(g), fm), mesh(merge(humps), mat.plastic('#2c2e31', 0.8)), mesh(merge(yel), y), wc, archLiners(), ...cabinLights], [0, 1.3, -1.5], 5);
   }
 
-  // ---- 座椅：一體成形的塑膠椅殼（側面輪廓拉寬），InstancedMesh 一次畫完 ----
+  // ---- 座椅：照實車（臺北客運 HINO 弘鉅車體）24 個座位。紅色坐墊靠背、灰色背殼、上面不鏽鋼握把（Blender 做的樣板） ----
   {
-    const prof = new THREE.Shape();
-    prof.moveTo(0.225, 0.43);
-    prof.bezierCurveTo(0.245, 0.44, 0.24, 0.475, 0.215, 0.48);
-    prof.lineTo(-0.12, 0.488);
-    prof.bezierCurveTo(-0.19, 0.49, -0.2, 0.53, -0.205, 0.58);
-    prof.lineTo(-0.235, 0.95);
-    prof.bezierCurveTo(-0.237, 0.99, -0.26, 1.0, -0.275, 0.985);
-    prof.lineTo(-0.252, 0.56);
-    prof.bezierCurveTo(-0.245, 0.47, -0.21, 0.43, -0.14, 0.425);
-    prof.closePath();
-    const shell = new THREE.ExtrudeGeometry(prof, {depth: 0.4, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.012, bevelSegments: 3, curveSegments: 10});
-    shell.translate(0, 0, -0.2);
-    const seatGeo = merge([shell, span([-0.06, 0, -0.04], [0.06, 0.43, 0.04], 0.01), span([-0.16, 0.38, -0.17], [0.16, 0.42, 0.17], 0.01)]);
-    const handle = merge([rod([-0.27, 0.99, -0.16], [-0.27, 1.06, -0.16], 0.012, 8), rod([-0.27, 1.06, -0.16], [-0.27, 1.06, 0.16], 0.012, 8), rod([-0.27, 0.99, 0.16], [-0.27, 1.06, 0.16], 0.012, 8)]);
+    // [x, 地板高, z, 轉向]：前段低地板（司機側兩排雙人、車門側兩個單人、輪椅區一張摺疊椅），後段墊高（兩排 2+2、再高一階 2+2、最後一排 5 人）
     const spots = [];
-    const pair = (x, y, s) => spots.push([x, y, s * 0.56], [x, y, s * 1.0]);
-    for (const x of [1.5, 0.7, -0.1, -0.9]) pair(x, FLOOR, -1);
-    for (const x of [2.3, 1.5]) pair(x, FLOOR, 1);
+    const pair = (x, y, s) => spots.push([x, y, s * 0.56, 0], [x, y, s * 1.0, 0]);
+    pair(1.45, FLOOR, -1);
+    pair(0.65, FLOOR, -1);
+    spots.push([1.35, FLOOR, 0.98, 0], [0.55, FLOOR, 0.98, 0]);
+    spots.push([-1.2, FLOOR, -1.02, -Math.PI / 2]); // 輪椅區的摺疊椅：靠著牆、面向走道
     for (const x of [-2.75, -3.55]) {
       pair(x, RAISED, -1);
       pair(x, RAISED, 1);
     }
     pair(-4.75, TOP, -1);
     pair(-4.75, TOP, 1);
-    for (const z of [-1.0, -0.5, 0, 0.5, 1.0]) spots.push([-5.55, TOP, z]);
-    const im = new THREE.InstancedMesh(seatGeo, new THREE.MeshStandardMaterial({color: '#ffffff', roughness: 0.45}), spots.length);
-    const hm = new THREE.InstancedMesh(handle, mat.chrome(), spots.length);
+    for (const z of [-1.0, -0.5, 0, 0.5, 1.0]) spots.push([-5.55, TOP, z, 0]);
+    const tmpl = (tag) => merge(skGroups('seatT', tag).map((g) => skGeo(g)));
+    const cushion = new THREE.InstancedMesh(tmpl('cushion'), new THREE.MeshStandardMaterial({color: '#ffffff', roughness: 0.62}), spots.length);
+    const shellI = new THREE.InstancedMesh(tmpl('shell'), mat.plastic('#8d9196', 0.45), spots.length);
+    const metalI = new THREE.InstancedMesh(tmpl('metal'), mat.plastic('#6f7378', 0.4), spots.length);
+    const grabI = new THREE.InstancedMesh(tmpl('chrome'), mat.chrome(), spots.length);
     const seatColors = [];
     const M = new THREE.Matrix4();
     const c = new THREE.Color();
-    spots.forEach(([x, y, z], i) => {
-      M.makeTranslation(x, y, z);
-      im.setMatrixAt(i, M);
-      hm.setMatrixAt(i, M);
-      im.setColorAt(i, c.set(i >= 8 && i < 12 ? COL.priority : COL.seat));
+    spots.forEach(([x, y, z, ry], i) => {
+      M.makeRotationY(ry).setPosition(x, y, z);
+      for (const im of [cushion, shellI, metalI, grabI]) im.setMatrixAt(i, M);
+      // 前面四個是博愛座（深一點的紅）
+      cushion.setColorAt(i, c.set(i < 4 ? COL.priority : COL.seat));
       seatColors.push(c.clone());
     });
-    im.castShadow = im.receiveShadow = hm.castShadow = true;
-    piece('seats', [im, hm], [0, 2.3, -2.0], 4);
+    for (const im of [cushion, shellI, metalI, grabI]) im.castShadow = im.receiveShadow = true;
+    piece('seats', [cushion, shellI, metalI, grabI], [0, 2.3, -2.0], 4);
     parts.seats.count = spots.length;
     seatColorsOut = seatColors;
   }
 
-  // ---- 扶手、吊環、下車鈴、刷卡機 ----
+  // ---- 扶手（不鏽鋼）、三角形吊環、黃色下車鈴、刷卡機 ----
   const RAIL_Y = 2.3;
   {
     const floorAt = (x) => (x > -1.9 ? FLOOR : x > -4.3 ? RAISED : TOP);
-    const poles = [[4.72, 0.98], [-0.56, 0.98], [-1.84, 0.98], [1.1, 0.25], [-0.2, -0.25], [2.65, -0.25], [-3.15, 0.25], [-4.0, -0.25]];
-    const g = poles.map(([x, z]) => cylY(0.019, floorAt(x), RAIL_Y, x, z, 12));
-    for (const z of [-0.42, 0.42]) g.push(cylX(0.017, 8.9, 0.2, RAIL_Y, z, 12));
+    const poles = [[DOOR_F[0] - 0.06, 0.98], [DOOR_R[1] + 0.06, 0.98], [DOOR_R[0] - 0.06, 0.98], [1.0, 0.3], [-0.2, -0.3], [2.6, -0.3], [-3.15, 0.3], [-4.0, -0.3]];
+    const g = poles.map(([x, z]) => cylY(0.019, floorAt(x), RAIL_Y, x, z, 14));
+    for (const z of [-0.42, 0.42]) g.push(cylX(0.017, 8.9, 0.2, RAIL_Y, z, 14));
     for (const x of [-4.1, -1.5, 1.2, 3.9]) for (const z of [-0.42, 0.42]) g.push(cylY(0.012, RAIL_Y, CEIL, x, z, 8));
-    piece('rails', [mesh(merge(g), mat.plastic(COL.yellow, 0.35))], [0, 3.0, -2.2], 3);
-    // 吊環：皮帶加圓環，掛在兩條長扶手上
-    const strap = merge([span([-0.014, -0.2, -0.004], [0.014, 0, 0.004], 0.003)]);
-    const ringG = new THREE.TorusGeometry(0.06, 0.01, 8, 24);
-    ringG.rotateY(Math.PI / 2);
-    ringG.translate(0, -0.26, 0);
+    piece('rails', [mesh(merge(g), mat.chrome())], [0, 3.0, -2.2], 3);
+    // 吊環：灰色皮帶＋三角形握把，掛在兩條長扶手上
+    const band = merge(skGroups('strapT', 'band').map((g2) => skGeo(g2)));
+    const tri = merge(skGroups('strapT', 'handle').map((g2) => skGeo(g2)));
     const xs = [];
     for (let x = -4.05; x <= 4.45; x += 0.42) if (!poles.some(([px]) => Math.abs(px - x) < 0.12)) xs.push(x);
     const n = xs.length * 2;
-    const sm = new THREE.InstancedMesh(strap, mat.plastic('#3a3d42', 0.7), n);
-    const rm = new THREE.InstancedMesh(ringG, mat.plastic('#f2c230', 0.35), n);
+    const sm = new THREE.InstancedMesh(band, mat.plastic('#55595e', 0.7), n);
+    const rm = new THREE.InstancedMesh(tri, mat.plastic('#a7abb0', 0.4), n);
     const M = new THREE.Matrix4();
     let i = 0;
     for (const x of xs)
@@ -903,12 +803,13 @@ export function buildBus() {
     sm.castShadow = rm.castShadow = true;
     piece('straps', [sm, rm], [0, 3.0, -2.2], 3);
     parts.straps.count = n;
-    const bells = poles.map(([x, z]) => span([x - 0.035, 1.38, z - 0.03], [x + 0.035, 1.46, z + 0.03], 0.01));
-    const b2 = poles.map(([x, z]) => cylX(0.022, 0.03, x + 0.045, 1.42, z, 16));
-    piece('bell', [mesh(merge(bells), mat.plastic('#f5f5f0')), mesh(merge(b2), mat.lamp('#d8352a', 0.35))], [0, 3.0, -2.2], 3);
+    // 下車鈴：柱子上的黃色小盒子，中間一顆紅色按鈕
+    const bells = poles.map(([x, z]) => span([x - 0.04, 1.36, z - 0.035], [x + 0.04, 1.48, z + 0.035], 0.012));
+    const b2 = poles.map(([x, z]) => cylX(0.024, 0.03, x + 0.05, 1.42, z, 16));
+    piece('bell', [mesh(merge(bells), mat.plastic(COL.yellow, 0.4)), mesh(merge(b2), mat.lamp('#d8352a', 0.35))], [0, 3.0, -2.2], 3);
     const readers = [];
-    for (const [x, z] of [[4.72, 0.98], [-0.56, 0.98]]) {
-      readers.push(mesh(span([x - 0.08, 1.0, z - 0.14], [x + 0.08, 1.24, z - 0.03], 0.02), mat.plastic('#2a2d31')));
+    for (const [x, z] of [[DOOR_F[0] - 0.06, 0.98], [DOOR_R[1] + 0.06, 0.98]]) {
+      readers.push(mesh(span([x - 0.08, 1.0, z - 0.14], [x + 0.08, 1.24, z - 0.03], 0.02), mat.plastic(COL.yellow, 0.45)));
       readers.push(mesh(span([x - 0.06, 1.1, z - 0.032], [x + 0.06, 1.2, z - 0.025], 0.005), mat.lamp('#3ccf7a', 0.5)));
     }
     piece('reader', readers, [0, 2.6, -1.6], 3);
