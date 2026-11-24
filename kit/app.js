@@ -476,17 +476,88 @@ ${
     const sc = app.querySelector('.sidecard:not([hidden])');
     const left = w >= 900 && sc ? sc.getBoundingClientRect().right + 8 : 0;
     frameSide = side + left;
+    const cards = [$('#card'), ...app.querySelectorAll('.sidecard')];
     if (w <= 620) {
-      // 手機：層數點放在控制列正上方，畫面中心在標題和層數點中間
-      const sTop = bar.top - 10 - st.height;
-      $('#stack').style.top = sTop + 'px';
-      frameBottom = h - sTop + 6;
-      frameTop = Math.max(frameTop, $('.title').getBoundingClientRect().bottom + 8);
-    } else $('#stack').style.top = '';
+      // 手機：底部的東西由下往上排成一疊，誰都不蓋到誰：
+      //   控制列（「更多」展開的那排算在裡面）→ 層數列 → 開車的數字 → 說明卡片（一次只開一張）。
+      // 卡片打開時層數列先讓開（讀卡片時用不到）；卡片最高只長到標題和上面那排切換鈕的下面，放不下才在卡片裡捲。
+      const GAP = 8;
+      const openCard = cards.find((c) => c && !c.hidden);
+      let y = bar.top;
+      const stackEl = $('#stack');
+      stackEl.classList.toggle('docked-off', !!openCard);
+      if (!openCard) {
+        y -= GAP + st.height;
+        stackEl.style.top = y + 'px';
+      }
+      const dr = $('#drive');
+      if (!dr.hidden) {
+        Object.assign(dr.style, {top: 'auto', bottom: h - y + GAP + 'px'});
+        y -= GAP + dr.offsetHeight;
+      } else dr.style.bottom = '';
+      $('#hint').style.bottom = h - y + GAP + 'px';
+      const topEdge = $('.title').getBoundingClientRect().bottom + GAP;
+      for (const c of cards) {
+        if (!c) continue;
+        if (c.hidden) {
+          Object.assign(c.style, {bottom: '', maxHeight: '', overflowY: ''});
+          continue;
+        }
+        Object.assign(c.style, {bottom: h - y + GAP + 'px', maxHeight: Math.max(160, y - GAP - topEdge) + 'px', overflowY: 'auto'});
+      }
+      frameBottom = h - (openCard ? openCard.getBoundingClientRect().top : y) + 6;
+      frameTop = Math.max(frameTop, topEdge);
+    } else {
+      // 電腦：左邊一欄由上往下：標題和切換鈕 → 開車的數字 → 卡片（從下面往上長，最高到數字下緣，放不下才捲）
+      const GAP = 12;
+      $('#stack').style.top = '';
+      $('#stack').classList.remove('docked-off');
+      const dr = $('#drive');
+      let topEdge = $('.title').getBoundingClientRect().bottom + GAP;
+      if (!dr.hidden) {
+        Object.assign(dr.style, {top: topEdge + 'px', bottom: 'auto'});
+        topEdge += dr.offsetHeight + GAP;
+      } else Object.assign(dr.style, {top: '', bottom: ''});
+      for (const c of cards) {
+        if (!c) continue;
+        if (c.hidden) Object.assign(c.style, {bottom: '', maxHeight: '', overflowY: ''});
+        else {
+          const bottom = h - c.getBoundingClientRect().bottom;
+          Object.assign(c.style, {maxHeight: Math.max(200, h - bottom - topEdge) + 'px', overflowY: 'auto'});
+        }
+      }
+      $('#hint').style.bottom = '';
+    }
     const centreY = (frameTop + (h - frameBottom)) / 2;
     camera.setViewOffset(w, h, (side - left) / 2, h / 2 - centreY, w, h);
     camera.updateProjectionMatrix();
   };
+  // 面板開關、控制列展開、卡片內容變了：重新排一次手機底部那一疊
+  {
+    let queued = false;
+    const relayout = () => {
+      if (queued || !alive) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        resize();
+      });
+    };
+    // 有的卡片是車子自己加的（公車的「哪裡不一樣」），所以看整個 app，只理會卡片、數字面板、控制列、資料的開關
+    const DOCK = '.card, #drive, #bar, #facts, #extraTop';
+    const ro = new ResizeObserver(relayout);
+    for (const el of [$('#card'), $('#drive'), $('#bar'), $('.title')]) ro.observe(el);
+    const mo = new MutationObserver((list) => {
+      for (const m of list)
+        if (m.target.matches?.(DOCK)) {
+          if (m.target.matches('.sidecard')) ro.observe(m.target);
+          relayout();
+          return;
+        }
+    });
+    mo.observe(app, {attributes: true, attributeFilter: ['hidden', 'class'], subtree: true});
+    ac.signal.addEventListener('abort', () => (mo.disconnect(), ro.disconnect()));
+  }
   addEventListener(
     'resize',
     () => {

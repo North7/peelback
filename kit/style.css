@@ -763,3 +763,18 @@ html[data-lang="en"] .cta { font-family: var(--f-sans); }
 .hero img { position: absolute; left: 50%; top: 0; width: min(720px, 84vw); height: 100%; transform: translateX(-50%); object-fit: contain; }
 .hero .soonmark { position: absolute; inset: 0; display: grid; place-items: center; }
 @media (max-width: 620px) { .hero img { width: 92vw; } }
+
+/* 手機：說明卡片打開時，層數列先讓開（位置在 app.js 的 resize 裡由下往上排） */
+@media (max-width: 620px) {
+  .stack.docked-off { opacity: 0; pointer-events: none; transform: translate(-50%, 12px); }
+  .card, .sidecard { overscroll-behavior: contain; }
+  .diff-grid { gap: 6px 4px; margin-top: 6px; }
+  .dc { min-height: 40px; padding: 4px 6px; font-size: 16px; }
+}
+/* 電腦：開車的數字橫排一列（直的三行太高，下面的卡片會被擠到要捲動） */
+@media (min-width: 621px) {
+  .drive { grid-auto-flow: column; column-gap: 22px; row-gap: 2px; }
+  .drive .ff { grid-row: 2; grid-column: 1 / -1; }
+}
+.diffcard .card-head h2 { font-size: 24px; white-space: nowrap; }
+@media (max-width: 620px) { .diffcard .card-head h2 { font-size: 22px; } }
