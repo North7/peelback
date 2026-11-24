@@ -1,10 +1,11 @@
-// 電影版：粒子 → 掃描成形 → 凍結爆炸 → 真實比例 → 天黑亮燈，接成一部自動播放的片。
+// 電影版：粒子 → 掃描成形 → 一層一層拆開 → 真實比例（其他三台也用粒子合成）→ 天黑亮燈，接成一部自動播放的片。
 // 同一個 3D 場景、同一台攝影機，鏡頭之間不剪接；也可以自己往下滑跳到下一個鏡頭（自動播放接著從那裡走）。
 //   1 一團失焦的點慢慢聚成 Model Y，一道光從車頭掃到車尾，掃過的地方變成實體的車（首屏）
-//   2 Model Y 在半空中慢動作炸開 → 3 鏡頭穿進零件之間看座椅 → 4 繞到車底看電池
-//   5 零件合回整台、鏡頭往後拉，115 公分的小朋友和公車出現 → 6 拉到最遠，四台照真實比例排開
+//   2 Model Y 照網站裡的拆法一層一層拆開（外殼 → 裡面 → 底盤 → 電池） → 3 看座椅 → 4 繞到車底看電池
+//   5 零件合回整台，115 公分的小朋友出現，公車由粒子聚成 → 6 飛機、高鐵也由粒子聚成，四台照真實比例排在一起
 //   7 天黑了，四台的燈一盞一盞亮起來（燈和閃的節奏都是網站裡同一組），停在「進展廳」
-import {THREE, loadVehicle, makeStage, Spring, pager, loop, isDark, RM, toScreen, smooth, ease, heroCopy, HINT, INFO, dragOrbit, css, isPhone, clamp01} from './stage.js';
+// 鏡頭的節奏有快有慢：換鏡頭時加速推過去、到位時慢下來，接著只剩很慢的推近，下一段再快速移動。
+import {THREE, loadVehicle, makeStage, Spring, pager, loop, isDark, RM, toScreen, smooth, ease, heroCopy, HINT, INFO, dragOrbit, isPhone, clamp01} from './stage.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {BokehPass} from 'three/addons/postprocessing/BokehPass.js';
@@ -18,23 +19,31 @@ const ARROW = '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
 const PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/></svg>';
 const PAUSE = '<svg viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13" stroke-width="2.4"/></svg>';
 const REPLAY = '<svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4v4.5H9"/></svg>';
-// 每個鏡頭：多久（自動播放）、焦點零件或要框住的車、方向、距離、名牌、字幕
+// 每個鏡頭：多久、換到這個鏡頭要花多久（tr，快速推過去）、焦點零件或位置、名牌、字幕
 const SHOTS = [
-  {dur: 9, form: true, focus: null, dir: [0.78, 0.3, -0.75], dist: 0.75},
-  {dur: 5.5, focus: null, dir: [0.75, 0.42, -0.85], dist: 1, card: ['Model Y', `${SPEC.length} 公尺・${Object.keys(PARTS).length} 個零件`]},
-  {dur: 5.5, focus: 'seats', dir: [0.3, 0.5, -0.92], dist: 0.6, card: [PARTS.seats.name, `${SPEC.seats} 個座位：前面兩個、後面三個`],
+  {dur: 9, tr: 6.5, focus: null, dir: [0.78, 0.3, -0.75], dist: 0.75},
+  {dur: 5.5, tr: 2.2, focus: null, dir: [0.75, 0.42, -0.85], dist: 1.05, card: ['Model Y', `${SPEC.length} 公尺・${Object.keys(PARTS).length} 個零件`]},
+  {dur: 5, tr: 1.7, focus: 'seats', dir: [0.3, 0.5, -0.92], dist: 0.62, card: [PARTS.seats.name, `${SPEC.seats} 個座位：前面兩個、後面三個`],
     chap: ['一層一層拆開', '外殼、座椅、底盤、電池，每一層都可以單獨拿出來看。']},
-  {dur: 5.5, focus: 'battery', dir: [0.55, -0.3, -0.95], dist: 0.56, card: [PARTS.battery.name, `大約 ${SPEC.battery} 度電，可以把 5000 支手機充飽`],
+  {dur: 5, tr: 1.9, focus: 'battery', dir: [0.55, -0.3, -0.95], dist: 0.58, card: [PARTS.battery.name, `大約 ${SPEC.battery} 度電，可以把 5000 支手機充飽`],
     chap: ['每個零件都有名字', '點一下零件，名牌就跳出來，還會念給你聽。中文、英文、注音都有。']},
-  {dur: 6, fit: ['car', 'bus'], az: 0.68, el: 0.26,
+  {dur: 6, tr: 2.2, fit: ['car', 'bus'], az: 0.68, el: 0.26,
     chap: ['照真的大小做', '旁邊站一個 115 公分的小朋友。公車 12.2 公尺，差不多 11 個小朋友躺成一排。']},
-  {dur: 6, at: [-14, 2.6, 9], d: 44, atP: [-7, 2.4, 5], dP: 64, az: 1.02, el: 0.17, // 不框整列高鐵：前景車子和小朋友，高鐵前幾節清楚、後面交給景深糊掉
-   
+  // 不框整列高鐵：前景車子和小朋友，高鐵前幾節清楚、後面交給景深糊掉
+  {dur: 8, tr: 2.4, at: [-14, 2.6, 9], d: 44, atP: [-7, 2.4, 5], dP: 64, az: 1.02, el: 0.17,
     chap: ['四台車，四種大小', '最長的高鐵 304 公尺，12 節車廂一節一節都拆得開。']},
-  {dur: Infinity, at: [-17, 3.2, 12], d: 52, atP: [-8, 2.8, 6], dP: 68, az: 1.16, el: 0.13, night: true,
+  {dur: Infinity, tr: 3, at: [-17, 3.2, 12], d: 52, atP: [-8, 2.8, 6], dP: 68, az: 1.16, el: 0.13, night: true,
     chap: ['天黑了，燈亮起來', '車頭燈、尾燈、高鐵整排的窗、飛機翅膀上一閃一閃的燈，每一組都可以自己打開。'], cta: true},
 ];
 const LANES = {car: 0, bus: 4.2, train: 8.8, plane: 46};
+// 每一台什麼時候用粒子聚出來（第幾個鏡頭、那個鏡頭開始後幾秒）：點聚攏、再一道光從車頭掃到車尾變成實體
+const APPEAR = {
+  car: {shot: 0, gather: [0.3, 3.6], sweep: [4.4, 2.6], n: 64000, spread: 'center', k: 16},
+  bus: {shot: 4, gather: [0.2, 1.9], sweep: [1.7, 1.3], n: 26000, spread: 4, k: 26},
+  // 飛機、高鐵：等鏡頭轉過去到位了才開始聚
+  plane: {shot: 5, gather: [1.9, 2.0], sweep: [3.6, 1.5], n: 36000, spread: 10, k: 46, size: 1.5},
+  train: {shot: 5, gather: [2.2, 2.0], sweep: [3.9, 1.7], n: 44000, spread: 8, k: 46, size: 1.5},
+};
 // 片子裡只從外面看高鐵和飛機：客艙裡的座椅、車底的機器、貨艙都不畫（省很多三角形；車窗的燈在外殼上，不受影響）
 const HIDE = {
   train: ['cab', 'standard', 'business', 'accessible', 'racks', 'toilet', 'vending', 'saloon', 'motorCars', 'trailerCars', 'transformer', 'converter', 'motors', 'aux'],
@@ -52,28 +61,30 @@ const PATTERN = {
   },
 };
 const NIGHT = {bg: new THREE.Color('#0a0f1c'), moon: new THREE.Color('#9db2ff'), white: new THREE.Color('#fffaf0')};
+const easeIO = (x) => ((x = clamp01(x)) < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2); // 換鏡頭：先加速、再減速
 
 const PVERT = `
 attribute vec4 aRnd;
-uniform float uScatter; uniform float uSweep; uniform float uTime; uniform float uFocus; uniform float uAperture; uniform float uSize; uniform float uPR; uniform vec3 uCenter;
+uniform float uScatter; uniform float uSweep; uniform float uTime; uniform float uFocus; uniform float uAperture; uniform float uSize; uniform float uPR; uniform vec3 uCenter; uniform float uSpread; uniform float uK;
 varying float vA; varying float vSoft; varying float vHi;
 void main(){
   vec3 p = position;
-  vec3 sc = uCenter + normalize(aRnd.xyz - 0.5 + 1e-4) * (3.0 + aRnd.w * 10.0) + vec3(0.0, 1.0, 0.0);
+  vec3 dir = normalize(aRnd.xyz - 0.5 + 1e-4);
+  // 散開的位置：Model Y 是一整團雲；其他車在自己的位置附近散開（高鐵 304 m，不從遠處飛過來）
+  vec3 sc = uSpread < 0.0 ? uCenter + dir * (3.0 + aRnd.w * 10.0) + vec3(0.0, 1.0, 0.0) : p + dir * uSpread * (0.4 + aRnd.w) + vec3(0.0, uSpread * 0.3, 0.0);
   float t = clamp(uScatter * 1.6 - aRnd.x * 0.6, 0.0, 1.0);
   t = t * t * (3.0 - 2.0 * t);
   p = mix(p, sc, t);
-  p += 0.006 * vec3(sin(uTime * 1.3 + aRnd.w * 40.0), sin(uTime * 1.1 + aRnd.y * 30.0), cos(uTime * 1.2 + aRnd.z * 20.0));
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   float dist = -mv.z;
   float c = clamp(abs(dist - uFocus) / dist * uAperture, 0.0, 1.0);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = uSize * uPR * (1.0 + c * 9.0) * (16.0 / dist) * (0.75 + aRnd.w * 0.5);
+  gl_PointSize = max(1.0, uSize * uPR * (1.0 + c * 9.0) * (uK / dist) * (0.75 + aRnd.w * 0.5));
   // 掃過去的地方換成實體的車：點淡掉；光正前方的一小段點變成主色
   float gone = smoothstep(uSweep - 0.12, uSweep + 0.02, position.x);
   vA = (1.0 - gone) / (1.0 + c * c * 60.0);
   vSoft = c;
-  vHi = (1.0 - smoothstep(0.0, 0.45, uSweep - position.x)) * step(position.x, uSweep) * step(uSweep, 0.2);
+  vHi = (1.0 - smoothstep(0.0, 0.45 + uSpread * 0.2, uSweep - position.x)) * step(position.x, uSweep) * step(uSweep, 0.2);
 }`;
 const PFRAG = `
 uniform vec3 uInk; uniform vec3 uAcc; uniform float uAlpha;
@@ -85,6 +96,44 @@ void main(){
   gl_FragColor = vec4(mix(uInk, uAcc, vHi), a * vA * uAlpha * (1.0 + vHi * 0.6));
   #include <colorspace_fragment>
 }`;
+
+/** 從一組網格的表面取 n 個點（照面積，InstancedMesh 每一份都算）。weight(m) 可以加重某些零件。 */
+function sampleSurface(meshes, n, weight = () => 1) {
+  const list = [];
+  let acc = 0;
+  for (const m of meshes) {
+    const mat = [].concat(m.material)[0];
+    if (mat?.transparent && (mat.opacity ?? 1) < 0.5) continue;
+    let s;
+    try {
+      s = new MeshSurfaceSampler(m).build();
+    } catch {
+      continue;
+    }
+    const a = s.distribution[s.distribution.length - 1] * Math.pow(Math.abs(m.matrixWorld.determinant()), 2 / 3) * (m.isInstancedMesh ? m.count : 1) * weight(m);
+    if (!(a > 0)) continue;
+    list.push({m, s, cum: (acc += a)});
+  }
+  const out = new Float32Array(n * 3);
+  const p = new THREE.Vector3(), m4 = new THREE.Matrix4();
+  for (let j = 0; j < n && list.length; j++) {
+    const r = Math.random() * acc;
+    let lo = 0, hi = list.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (list[mid].cum < r) lo = mid + 1;
+      else hi = mid;
+    }
+    const e = list[lo];
+    e.s.sample(p);
+    if (e.m.isInstancedMesh) {
+      e.m.getMatrixAt(Math.floor(Math.random() * e.m.count), m4);
+      p.applyMatrix4(m4);
+    }
+    p.applyMatrix4(e.m.matrixWorld).toArray(out, j * 3);
+  }
+  return out;
+}
 
 export default async function run(stage, ctx) {
   const T0 = performance.now();
@@ -104,8 +153,8 @@ export default async function run(stage, ctx) {
   scene.add(rim, rim.target);
 
   // ---------- 燈：每台車的燈材質和光源（和網站同一套標記） ----------
-  const lamps = []; // {veh, group, mat, lamp}
-  const lightsSrc = []; // {veh, group, light, base}
+  const lamps = [];
+  const lightsSrc = [];
   const collectLights = (v, id) => {
     const modes = Object.fromEntries((v.V.LIGHTS || []).map((g) => [g.id, g.mode || 'steady']));
     const seen = new Set();
@@ -124,7 +173,9 @@ export default async function run(stage, ctx) {
     });
   };
 
-  // ---------- 放一台車：照實車尺寸、車頭對齊 x = 0 ----------
+  // ---------- 四台：照實車尺寸、車頭對齊 x = 0；每台一個裁切面（掃到的地方才是實體）和一團點 ----------
+  const V = {}; // id -> {root, meshes, plane, box, pts, PU, shown}
+  const boxes = {};
   const place = (v, id) => {
     const root = v.model.root;
     root.scale.setScalar(1);
@@ -138,71 +189,40 @@ export default async function run(stage, ctx) {
     root.updateMatrixWorld(true);
     root.traverse((o) => o.isMesh && ((o.castShadow = true), (o.receiveShadow = true)));
     collectLights(v, id);
-    return new THREE.Box3().setFromObject(root);
+    boxes[id] = new THREE.Box3().setFromObject(root);
+    const plane = new THREE.Plane(new THREE.Vector3(1, 0, 0), -0.3);
+    const ms = [];
+    const done = new Set();
+    root.traverse((o) => {
+      if (!o.isMesh || !o.visible) return;
+      if (HIDE[id]?.includes(o.userData.part)) return void (o.visible = false);
+      ms.push(o);
+      for (const m of [].concat(o.material)) if (!done.has(m)) done.add(m), (m.clippingPlanes = [plane]), (m.clipShadows = true);
+    });
+    // 點：從這台的表面取樣（Model Y 裡面的零件加重一點，拆開前就看得到裡面）
+    const A = APPEAR[id];
+    const n = Math.round(A.n * (isPhone() ? 0.5 : 1));
+    const pos = sampleSurface(ms, n, id === 'car' ? (m) => (v.layerOf[m.userData.part] === 1 ? 1 : 1.6) : () => 1);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('aRnd', new THREE.BufferAttribute(new Float32Array(n * 4).map(() => Math.random()), 4));
+    g.boundingSphere = boxes[id].getBoundingSphere(new THREE.Sphere());
+    g.boundingSphere.radius += 30;
+    const PU = {uScatter: {value: 1}, uSweep: {value: 0.3}, uTime: {value: 0}, uFocus: {value: 8}, uAperture: {value: 1.4}, uSize: {value: (isPhone() ? 1.5 : 1.3) * (A.size || 1)}, uPR: {value: renderer.getPixelRatio()}, uCenter: {value: boxes[id].getCenter(new THREE.Vector3())}, uSpread: {value: A.spread === 'center' ? -1 : A.spread}, uK: {value: A.k}, uInk: {value: new THREE.Color()}, uAcc: {value: new THREE.Color()}, uAlpha: {value: 0.4}};
+    const pts = new THREE.Points(g, new THREE.ShaderMaterial({uniforms: PU, vertexShader: PVERT, fragmentShader: PFRAG, transparent: true, depthWrite: false}));
+    pts.renderOrder = 2;
+    pts.visible = false;
+    scene.add(pts);
+    // 只藏網格、不藏整台：車上的燈一直算在場景裡，燈的數量不變，材質才不用重新編譯
+    for (const m of ms) m.visible = false;
+    V[id] = {root, meshes: ms, plane, pts, PU, shown: false};
   };
-  const boxes = {car: place(car, 'car')};
+  place(car, 'car');
+  mark('car-sample');
   const {model, layerOf} = car;
   const C = boxes.car.getCenter(new THREE.Vector3());
 
-  // ---------- 開場的點：從 Model Y 每一塊的表面取樣 ----------
-  const meshes = [];
-  model.root.traverse((o) => o.isMesh && o.visible && layerOf[o.userData.part] && meshes.push(o));
-  const NP = isPhone() ? 32000 : 64000;
-  const pPos = new Float32Array(NP * 3);
-  {
-    const list = [];
-    let acc = 0;
-    for (const m of meshes) {
-      const mat = [].concat(m.material)[0];
-      if (mat?.transparent && (mat.opacity ?? 1) < 0.5) continue;
-      let s;
-      try {
-        s = new MeshSurfaceSampler(m).build();
-      } catch {
-        continue;
-      }
-      // 外殼的面積大，裡面的零件少一點點，但還是要看得到
-      const L = layerOf[m.userData.part];
-      const a = s.distribution[s.distribution.length - 1] * Math.pow(Math.abs(m.matrixWorld.determinant()), 2 / 3) * (m.isInstancedMesh ? m.count : 1) * (L === 1 ? 1 : 1.6);
-      if (!(a > 0)) continue;
-      list.push({m, s, cum: (acc += a)});
-    }
-    const p = new THREE.Vector3(), m4 = new THREE.Matrix4();
-    for (let j = 0; j < NP; j++) {
-      const r = Math.random() * acc;
-      let lo = 0, hi = list.length - 1;
-      while (lo < hi) {
-        const mid = (lo + hi) >> 1;
-        if (list[mid].cum < r) lo = mid + 1;
-        else hi = mid;
-      }
-      const e = list[lo];
-      e.s.sample(p);
-      if (e.m.isInstancedMesh) {
-        e.m.getMatrixAt(Math.floor(Math.random() * e.m.count), m4);
-        p.applyMatrix4(m4);
-      }
-      p.applyMatrix4(e.m.matrixWorld).toArray(pPos, j * 3);
-    }
-  }
-  mark('sample');
-  const pGeo = new THREE.BufferGeometry();
-  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-  pGeo.setAttribute('aRnd', new THREE.BufferAttribute(new Float32Array(NP * 4).map(() => Math.random()), 4));
-  pGeo.boundingSphere = new THREE.Sphere(C, 30);
-  const PU = {uScatter: {value: 1}, uSweep: {value: 0.3}, uTime: {value: 0}, uFocus: {value: 8}, uAperture: {value: 1.4}, uSize: {value: isPhone() ? 1.5 : 1.3}, uPR: {value: renderer.getPixelRatio()}, uCenter: {value: C}, uInk: {value: new THREE.Color()}, uAcc: {value: new THREE.Color()}, uAlpha: {value: 0.6}};
-  const pMat = new THREE.ShaderMaterial({uniforms: PU, vertexShader: PVERT, fragmentShader: PFRAG, transparent: true, depthWrite: false});
-  const points = new THREE.Points(pGeo, pMat);
-  points.renderOrder = 2;
-  scene.add(points);
-
-  // 實體的車：掃到的地方才出現（x ≥ 掃描線）
-  const carClip = new THREE.Plane(new THREE.Vector3(1, 0, 0), -0.3);
-  {
-    const done = new Set();
-    for (const m of meshes) for (const mat of [].concat(m.material)) if (!done.has(mat)) done.add(mat), (mat.clippingPlanes = [carClip]), (mat.clipShadows = true);
-  }
-  // 掃描線：很淡的主色面＋細線框
+  // Model Y 的掃描線：很淡的主色面＋細線框
   const accC = new THREE.Color();
   const sweepG = new THREE.Group();
   {
@@ -216,35 +236,36 @@ export default async function run(stage, ctx) {
     scene.add(sweepG);
   }
 
-  // ---------- Model Y 炸開：每一塊各自一個轉軸 ----------
-  const frags = [];
-  const MAG = [0, 1.55, 0.95, 0.6, 0.25];
-  const ROT = [0, 0.55, 0.4, 0.28, 0.14];
+  // ---------- Model Y 拆開：照網站裡的拆法（每塊零件照自己的方向移開），一層一層錯開 ----------
+  const NL = car.V.LAYERS.length;
+  for (const p of model.pieces) (p.x = 0), (p.v = 0), (p.target = 0), (p.wait = 0);
+  // 拆開後每個零件的中心（名牌、鏡頭對焦用）：先把零件放到拆開的位置量，再放回去
   const partC = {};
-  const wc = new THREE.Vector3(), bb = new THREE.Box3();
-  for (const m of meshes) {
-    bb.setFromObject(m);
-    if (bb.isEmpty()) continue;
-    bb.getCenter(wc);
-    const parent = m.parent;
-    const g = new THREE.Group();
-    parent.add(g);
-    parent.updateMatrixWorld(true);
-    g.position.copy(parent.worldToLocal(wc.clone()));
-    g.updateMatrixWorld(true);
-    g.attach(m);
-    const L = layerOf[m.userData.part];
-    const d = wc.clone().sub(C);
-    d.y = d.y * 0.6 + 0.25;
-    const offW = d.normalize().multiplyScalar(MAG[L] * (0.75 + Math.random() * 0.6));
-    offW.y += 0.8;
-    const wT = wc.clone().add(offW);
-    frags.push({g, p0: g.position.clone(), p1: parent.worldToLocal(wT.clone()), q1: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3().randomDirection(), ROT[L] * (Math.random() - 0.5) * 2), axis: new THREE.Vector3().randomDirection(), ph: Math.random() * 6.28, delay: (4 - L) * 0.05 + Math.random() * 0.06});
-    const pc = (partC[m.userData.part] ||= {s: new THREE.Vector3(), n: 0});
-    pc.s.add(wT);
-    pc.n++;
+  let allC;
+  {
+    for (const p of model.pieces) p.obj.position.copy(p.base).add(p.vec);
+    model.root.updateMatrixWorld(true);
+    const all = new THREE.Box3();
+    const bb = new THREE.Box3();
+    for (const id in model.parts) {
+      bb.makeEmpty();
+      for (const m of model.parts[id].meshes) bb.expandByObject(m);
+      if (!bb.isEmpty()) (partC[id] = bb.getCenter(new THREE.Vector3())), all.union(bb);
+    }
+    allC = all.getCenter(new THREE.Vector3());
+    for (const p of model.pieces) p.obj.position.copy(p.base);
+    model.root.updateMatrixWorld(true);
   }
-  const centerOf = (id) => (id && partC[id] ? partC[id].s.clone().divideScalar(partC[id].n) : C.clone().add(new THREE.Vector3(0, 0.9, 0)));
+  const centerOf = (id) => (id && partC[id] ? partC[id].clone() : allC.clone());
+  const setApart = (on) => {
+    for (const p of model.pieces) {
+      const L = layerOf[p.id] || 1;
+      if (p.target === (on ? 1 : 0)) continue;
+      p.target = on ? 1 : 0;
+      // 拆：外殼先走、一層一層往裡；合：最裡面的先回去
+      p.wait = RM.matches ? 0 : on ? (L - 1) * 0.34 + (p.order % 4) * 0.06 : (NL - L) * 0.12 + (p.order % 4) * 0.04;
+    }
+  };
 
   // ---------- 小朋友（平的人形剪影，主色） ----------
   const kidMat = new THREE.MeshStandardMaterial({color: '#2f5bea', roughness: 0.5});
@@ -267,37 +288,13 @@ export default async function run(stage, ctx) {
   boxes.kid = new THREE.Box3(new THREE.Vector3(0.9, 0, -2.9), new THREE.Vector3(1.5, KID, -2.3));
   const kidS = new Spring(0, 120, 11);
 
-  // ---------- 其他三台：開播前就準備好（播放中才建會卡一下），第 5、6 個鏡頭才沿著尺「畫」出來 ----------
-  const others = {};
-  await (async () => {
-    for (const id of ['bus', 'plane', 'train']) {
-      const v = await loadVehicle(id);
-      mark(id);
-      if (!ctx.alive()) return;
-      const plane = new THREE.Plane(new THREE.Vector3(1, 0, 0), -0.01);
-      boxes[id] = place(v, id);
-      const done = new Set();
-      v.model.root.traverse((o) => {
-        if (!o.isMesh) return;
-        for (const m of [].concat(o.material)) {
-          if (done.has(m)) continue;
-          done.add(m);
-          m.clippingPlanes = [plane];
-          m.clipShadows = true;
-        }
-      });
-      // 只藏網格、不藏整台：車上的燈一直算在場景裡，燈的數量不變，材質才不用重新編譯
-      const ms = [];
-      v.model.root.traverse((o) => {
-        if (!o.isMesh || !o.visible) return;
-        if (HIDE[id]?.includes(o.userData.part)) o.visible = false;
-        else ms.push(o);
-      });
-      for (const m of ms) m.visible = false;
-      others[id] = {root: v.model.root, meshes: ms, shown: false, plane, len: INFO[id].len, grow: new Spring(0, 10, 6.3)};
-    }
-  })();
-  if (!ctx.alive()) return;
+  // ---------- 其他三台：開播前就準備好（播放中才建會卡一下） ----------
+  for (const id of ['bus', 'plane', 'train']) {
+    const v = await loadVehicle(id);
+    mark(id);
+    if (!ctx.alive()) return;
+    place(v, id);
+  }
 
   // ---------- 後製：燈的光暈（只有晚上）、景深 ----------
   const composer = new EffectComposer(renderer);
@@ -321,9 +318,10 @@ export default async function run(stage, ctx) {
   ro.observe(canvas);
   // 熱身：所有東西打開、從很遠的地方畫一次，著色器、影子、光暈都先準備好（不然第一次出現時會卡一下）
   {
-    for (const id in others) {
-      others[id].plane.constant = 9999;
-      for (const m of others[id].meshes) m.visible = true;
+    for (const id in V) {
+      V[id].plane.constant = 9999;
+      for (const m of V[id].meshes) m.visible = true;
+      V[id].pts.visible = true;
     }
     kid.scale.setScalar(1);
     sweepG.visible = true;
@@ -338,15 +336,16 @@ export default async function run(stage, ctx) {
     camera.far = 4000;
     camera.updateProjectionMatrix();
     const culled = [];
-    scene.traverse((o) => o.isMesh && o.frustumCulled && (culled.push(o), (o.frustumCulled = false)));
+    scene.traverse((o) => (o.isMesh || o.isPoints) && o.frustumCulled && (culled.push(o), (o.frustumCulled = false)));
     // 平行編譯（瀏覽器支援的話不會卡住主執行緒），再真的畫一次，把模型資料送進顯示卡
     await renderer.compileAsync(scene, camera);
     if (!ctx.alive()) return;
     composer.render(0.016);
     for (const o of culled) o.frustumCulled = true;
-    for (const id in others) {
-      others[id].plane.constant = -0.01;
-      for (const m of others[id].meshes) m.visible = false;
+    for (const id in V) {
+      V[id].plane.constant = -0.3;
+      for (const m of V[id].meshes) m.visible = false;
+      V[id].pts.visible = false;
     }
     kid.scale.setScalar(0.0001);
     sweepG.visible = false;
@@ -362,11 +361,14 @@ export default async function run(stage, ctx) {
     const d = isDark();
     kidMat.color.set(d ? '#7d98ff' : '#2f5bea');
     accC.set(d ? '#7d98ff' : '#2f5bea');
-    PU.uInk.value.set(d ? '#edede8' : '#1a1b1d');
-    PU.uAcc.value.set(d ? '#7d98ff' : '#2f5bea');
-    PU.uAlpha.value = d ? 0.5 : 0.36;
-    pMat.blending = d ? THREE.AdditiveBlending : THREE.NormalBlending;
-    pMat.needsUpdate = true;
+    for (const id in V) {
+      const {PU, pts} = V[id];
+      PU.uInk.value.set(d ? '#edede8' : '#1a1b1d');
+      PU.uAcc.value.set(d ? '#7d98ff' : '#2f5bea');
+      PU.uAlpha.value = d ? 0.5 : 0.36;
+      pts.material.blending = d ? THREE.AdditiveBlending : THREE.NormalBlending;
+      pts.material.needsUpdate = true;
+    }
   };
   paint();
   ctx.onTheme(() => {
@@ -392,7 +394,6 @@ export default async function run(stage, ctx) {
 
   // ---------- 狀態 ----------
   let si = 0, shotT = 0, playing = !RM.matches;
-  const tau = new Spring(0, 9, 5.2); // 炸開的進度（慢動作）
   const nightS = new Spring(0, 6, 4.9);
   const num = {v: SPEC.length, from: SPEC.length, to: SPEC.length, t: 1};
   const UP = new THREE.Vector3(0, 1, 0);
@@ -422,44 +423,32 @@ export default async function run(stage, ctx) {
     if (s.at) return portrait() ? {c: new THREE.Vector3(...s.atP), d: s.dP, az: s.az, el: s.el} : {c: new THREE.Vector3(...s.at), d: s.d * Math.max(1, 1.3 / camera.aspect), az: s.az, el: s.el};
     const dir = new THREE.Vector3(...s.dir).normalize();
     const base = 18 * Math.max(1, (portrait() ? 0.95 : 1.4) / camera.aspect);
-    return {c: centerOf(s.focus), d: base * s.dist, az: Math.atan2(dir.x, -dir.z), el: Math.asin(dir.y)};
+    return {c: s.focus === null && i === 0 ? C.clone() : centerOf(s.focus), d: base * s.dist, az: Math.atan2(dir.x, -dir.z), el: Math.asin(dir.y)};
   };
-  // ---------- 鏡頭：整段一條時間軸。每個鏡頭一個位置，鏡頭經過時不停下來（三次 Hermite，速度連續） ----------
+  // ---------- 鏡頭：快慢有節奏。每個鏡頭先「換過去」（tr 秒，先加速再減速），到位後只剩很慢的推近 ----------
   const START = [];
   {
     let a = 0;
     for (const s of SHOTS) START.push(a), (a += s.dur);
   }
-  // 每個鏡頭「到位」的時間：自己按著看（暫停）時停在這裡
-  const KEYT = [7.6, START[1] + 2.2, START[2] + 2.2, START[3] + 2.2, START[4] + 2.6, START[5] + 2.8, START[6] + 3.2];
-  const keys = () => {
-    const P = SHOTS.map((_, i) => pose(i));
-    const v = (p, dld = 0, daz = 0, del = 0) => [p.c.x, p.c.y, p.c.z, Math.log(p.d) + dld, p.az + daz, p.el + del];
-    return [[0, v(P[0], Math.log(2.2), -0.5, -0.1)], [6.5, v(P[0])], ...P.slice(1).map((p, i) => [KEYT[i + 1], v(p)]), [START[6] + 40, v(P[6], -0.18, 0.14, 0.02)]];
-  };
+  const vec = (p, dld = 0, daz = 0, del = 0) => [p.c.x, p.c.y, p.c.z, Math.log(p.d) + dld, p.az + daz, p.el + del];
+  const settle = (i) => vec(pose(i)); // 到位
+  const drift = (i) => vec(pose(i), -0.07, 0.03, 0.008); // 這個鏡頭結束時（慢慢推近一點、轉一點點）
+  const lerpV = (a, b, e) => a.map((x, k) => x + (b[k] - x) * e);
   const camAt = (T) => {
-    const K = keys(), n = K.length;
-    if (T <= K[0][0]) return K[0][1].slice();
-    if (T >= K[n - 1][0]) return K[n - 1][1].slice();
     let i = 0;
-    while (K[i + 1][0] < T) i++;
-    // 單調的切線（Fritsch–Butland）：兩個位置之間不會衝過頭再拉回來（鏡頭不晃），速度仍然連續
-    const slope = (j, k) => (K[j + 1][1][k] - K[j][1][k]) / (K[j + 1][0] - K[j][0]);
-    const tan = (j) =>
-      K[j][1].map((_, k) => {
-        if (j === 0 || j === n - 1) return 0;
-        const a = slope(j - 1, k), b = slope(j, k);
-        if (a * b <= 0) return 0;
-        const h0 = K[j][0] - K[j - 1][0], h1 = K[j + 1][0] - K[j][0];
-        const w1 = 2 * h1 + h0, w2 = h1 + 2 * h0;
-        return (w1 + w2) / (w1 / a + w2 / b);
-      });
-    const [t0, p0] = K[i], [t1, p1] = K[i + 1];
-    const m0 = tan(i), m1 = tan(i + 1);
-    const h = t1 - t0, u = (T - t0) / h, u2 = u * u, u3 = u2 * u;
-    const a0 = 2 * u3 - 3 * u2 + 1, b0 = u3 - 2 * u2 + u, a1 = -2 * u3 + 3 * u2, b1 = u3 - u2;
-    return p0.map((x, k) => a0 * x + b0 * h * m0[k] + a1 * p1[k] + b1 * h * m1[k]);
+    while (i < SHOTS.length - 1 && T >= START[i + 1]) i++;
+    const s = SHOTS[i], lt = T - START[i];
+    if (lt < s.tr) {
+      // 換過去：從上一個鏡頭結束的位置出發（開場從遠處、低一點的地方慢慢推進來）
+      const from = i === 0 ? vec(pose(0), Math.log(2.2), -0.5, -0.1) : drift(i - 1);
+      return lerpV(from, settle(i), i === 0 ? smooth(lt / s.tr) : easeIO(lt / s.tr));
+    }
+    // 到位後：很慢地推近（越來越慢）
+    const hold = isFinite(s.dur) ? s.dur - s.tr : 40;
+    return lerpV(settle(i), drift(i), 1 - Math.pow(1 - Math.min(1, (lt - s.tr) / hold), 2));
   };
+  const KEYT = SHOTS.map((s, i) => START[i] + s.tr + (i === 0 ? 1.2 : 0.3)); // 暫停時停在這個鏡頭到位的地方
   let filmT = 0, auto = false;
   let camV = camAt(0);
   const blend = {k: 1, from: null};
@@ -495,7 +484,7 @@ export default async function run(stage, ctx) {
         $('#fcT').textContent = s.card[0];
         $('#fcL').textContent = s.card[1];
         card.classList.add('on');
-      }, RM.matches ? 0 : 1100);
+      }, RM.matches ? 0 : i === 1 ? 2200 : 1100);
     chap.classList.remove('in');
     chap.classList.toggle('off', !s.chap);
     if (s.chap)
@@ -514,17 +503,20 @@ export default async function run(stage, ctx) {
       if (num.to !== INFO[id].len) {
         num.from = num.v;
         num.to = INFO[id].len;
-        num.t = 0;
+        num.t = i === 5 ? -2.4 : 0; // 高鐵：等它掃出來時才開始滾
       }
-      $('#mWho').textContent = `${INFO[id].brand}・${INFO[id].name}`;
-      $('#mKids').textContent = `差不多 ${Math.round(INFO[id].len / KID)} 個小朋友躺成一排`;
+      const who = () => {
+        $('#mWho').textContent = `${INFO[id].brand}・${INFO[id].name}`;
+        $('#mKids').textContent = `差不多 ${Math.round(INFO[id].len / KID)} 個小朋友躺成一排`;
+      };
+      if (i === 5) setTimeout(() => si === 5 && who(), RM.matches ? 0 : 3800);
+      else who();
     }
     if (i < 4) (num.v = num.from = num.to = SPEC.length), (num.t = 1);
     progB.forEach((b, k) => (b.classList.toggle('on', k === i), b.classList.toggle('done', k < i)));
     setPlayIcon();
   };
-  const go = async (i) => {
-    const from = si;
+  const go = (i) => {
     si = i;
     // 自動播放走到下一段：時間軸照常；自己跳過去：時間跳到那一段的開頭，鏡頭從現在的位置順順地接過去
     if (!auto) {
@@ -534,13 +526,9 @@ export default async function run(stage, ctx) {
     }
     shotT = filmT - START[i];
     hint.classList.add('gone');
-    tau.to = i >= 1 && i <= 3 ? 1 : 0;
-    kidS.to = i >= 4 ? 1 : 0;
-    // 從後面跳回開場：點重新散開
-    if (i === 0 && from !== 0) PU.uScatter.value = 1;
+    setApart(i >= 1 && i <= 3);
     setNight(!!SHOTS[i].night);
     setText(i);
-    for (const id in others) others[id].grow.to = (id === 'bus' && i >= 4) || i >= 5 ? 1 : 0;
     if (!playing) setTimeout(() => si === i && i < SHOTS.length - 1 && hint.classList.remove('gone'), 3000);
   };
   const pg = pager(stage, {n: SHOTS.length, onGo: go, sig: ctx.sig});
@@ -561,13 +549,12 @@ export default async function run(stage, ctx) {
   if (!playing) hint.classList.remove('gone');
 
   // ---------- 每一格 ----------
-  const q = new THREE.Quaternion(), qI = new THREE.Quaternion(), qd = new THREE.Quaternion();
-  const tgt = new THREE.Vector3(), tmp = new THREE.Vector3();
+  const tgt = new THREE.Vector3();
   const stage0 = {copyShown: false};
-  // 測試用：網址加 ?speed=4 快轉（預覽視窗一秒只有幾格時才看得完一遍）
+  // 測試用：網址加 ?speed=4 快轉（預覽視窗一秒只有幾格時才看得完一遍）；?perf 記下每一格攝影機的位置
   const SPEED = +new URLSearchParams(location.search).get('speed') || 1;
-  const PERF = new URLSearchParams(location.search).has('perf'); // 測試用：記下每一格攝影機的位置
-  let t = 0;
+  const PERF = new URLSearchParams(location.search).has('perf');
+  let t = 0, bokK = 0;
   const stop = loop((dt0, _t, raw) => {
     const dt = dt0 * SPEED;
     if (raw > 0.09 && t > 1) console.log('[film] hitch', Math.round(raw * 1000), 'ms at', filmT.toFixed(1), 'shot', si);
@@ -583,43 +570,49 @@ export default async function run(stage, ctx) {
     shotT = filmT - START[si];
     const cur = progB[si]?.querySelector('i');
     if (cur) cur.style.setProperty('--p', isFinite(SHOTS[si].dur) ? clamp01(shotT / SHOTS[si].dur) : 1);
-    // 開場：點聚起來（焦點同時拉近），然後一道光從車頭掃到車尾
-    let sweep = -99;
     if (si === 0) {
-      const sc = RM.matches ? 0 : 1 - ease((shotT - 0.3) / 3.6);
-      PU.uScatter.value = Math.min(PU.uScatter.value, sc);
-      sweep = RM.matches ? -6 : THREE.MathUtils.lerp(0.25, boxes.car.min.x - 0.2, smooth((shotT - 4.4) / 2.6));
       if (!stage0.copyShown && shotT > 3.2) (stage0.copyShown = true), copy.classList.remove('away');
+      if (shotT < 0.05) copy.classList.add('away');
     } else stage0.copyShown = false;
-    if (si === 0 && shotT < 0.05) copy.classList.add('away');
-    PU.uSweep.value = sweep;
-    PU.uTime.value = t;
-    points.visible = si === 0 && sweep > boxes.car.min.x - 0.1;
-    carClip.constant = -sweep;
-    sweepG.visible = si === 0 && sweep < 0.2 && sweep > boxes.car.min.x - 0.15;
-    sweepG.position.x = sweep;
-    // 零件
-    const k = tau.step(dt);
-    for (const f of frags) {
-      const e = ease(Math.max(0, (k - f.delay) / (1 - f.delay)));
-      const drift = RM.matches ? 0 : e * 0.06;
-      f.g.position.lerpVectors(f.p0, f.p1, e);
-      f.g.position.y += Math.sin(t * 0.35 + f.ph) * drift * 0.25;
-      q.slerpQuaternions(qI, f.q1, e);
-      qd.setFromAxisAngle(f.axis, Math.sin(t * 0.21 + f.ph) * drift);
-      f.g.quaternion.copy(q).multiply(qd);
-    }
-    kid.scale.setScalar(Math.max(0.0001, kidS.step(dt)));
-    for (const id in others) {
-      const o = others[id];
-      const e = smooth(o.grow.step(dt));
-      o.plane.constant = e > 0 ? e * (o.len + 2) : -0.01;
-      const show = e > 0.002;
+    // 每一台：還沒輪到就藏著；輪到了點先聚攏、再一道光從車頭掃到車尾；之後就是實體
+    for (const id in V) {
+      const A = APPEAR[id], o = V[id];
+      const lt = filmT - START[A.shot];
+      const minX = boxes[id].min.x;
+      let sc = 0, sw = minX - 1;
+      if (si < A.shot || lt < 0) (sc = 1), (sw = 0.25);
+      else if (!RM.matches) {
+        sc = 1 - ease((lt - A.gather[0]) / A.gather[1]);
+        sw = THREE.MathUtils.lerp(0.25, minX - 0.2, smooth((lt - A.sweep[0]) / A.sweep[1]));
+      }
+      const before = si < A.shot;
+      o.PU.uScatter.value = sc;
+      o.PU.uSweep.value = sw;
+      o.PU.uTime.value = t;
+      o.pts.visible = !before && sw > minX - 0.1;
+      o.plane.constant = -sw;
+      const show = !before && sw < 0.2;
       if (show !== o.shown) {
         o.shown = show;
         for (const m of o.meshes) m.visible = show;
       }
     }
+    const carSw = V.car.PU.uSweep.value;
+    sweepG.visible = si === 0 && carSw < 0.2 && carSw > boxes.car.min.x - 0.15;
+    sweepG.position.x = carSw;
+    // Model Y 拆開：每塊一個彈簧（和網站同一組參數），照順序一層一層走
+    for (const p of model.pieces) {
+      if (p.wait > 0) {
+        p.wait -= dt;
+        continue;
+      }
+      p.v += ((RM.matches ? 400 : 120) * (p.target - p.x) - (RM.matches ? 40 : 15) * p.v) * dt;
+      p.x += p.v * dt;
+      p.obj.position.copy(p.base).addScaledVector(p.vec, p.x);
+      if (p.hinge) p.obj.rotation.x = p.hinge * 0.985 * Math.max(0, p.x);
+    }
+    kidS.to = si > 4 || (si === 4 && shotT > 1.6) ? 1 : 0; // 鏡頭退開之後才出現（不然在鏡頭前面變一個大人形）
+    kid.scale.setScalar(Math.max(0.0001, kidS.step(dt)));
     if (num.t < 1) {
       num.t = Math.min(1, num.t + dt / 1.6);
       num.v = num.from + (num.to - num.from) * ease(num.t);
@@ -653,21 +646,20 @@ export default async function run(stage, ctx) {
       L.lv += (w - L.lv) * (1 - Math.exp(-dt * 6));
       L.light.intensity = L.base * L.lv;
     }
-    // 鏡頭
-    let V = camAt(filmT);
+    // 鏡頭（不加手持晃動、不加一直在飄的轉動：快慢交給時間軸）
+    let cv = camAt(filmT);
     if (blend.k < 1) {
-      blend.k = RM.matches ? 1 : Math.min(1, blend.k + dt / 1.8);
-      const e = smooth(blend.k);
-      V = V.map((x, k) => blend.from[k] + (x - blend.from[k]) * e);
+      blend.k = RM.matches ? 1 : Math.min(1, blend.k + dt / 1.6);
+      const e = easeIO(blend.k);
+      cv = cv.map((x, k) => blend.from[k] + (x - blend.from[k]) * e);
     }
-    camV = V;
+    camV = cv;
     orbit.step(dt);
-    const dist = Math.exp(V[3]);
-    const az = V[4] + orbit.yaw.x + (RM.matches ? 0 : Math.sin(t * 0.07) * 0.012);
-    const el = V[5] + orbit.pitch.x * 0.5;
-    tgt.set(V[0], V[1], V[2]);
+    const dist = Math.exp(cv[3]);
+    const az = cv[4] + orbit.yaw.x;
+    const el = cv[5] + orbit.pitch.x * 0.5;
+    tgt.set(cv[0], cv[1], cv[2]);
     camera.position.set(tgt.x + Math.sin(az) * Math.cos(el) * dist, tgt.y + Math.sin(el) * dist, tgt.z - Math.cos(az) * Math.cos(el) * dist);
-    if (!RM.matches) camera.position.add(tmp.set(Math.sin(t * 0.31), Math.sin(t * 0.23), Math.cos(t * 0.27)).multiplyScalar(dist * 0.0012)); // 很輕的手持感
     camera.lookAt(tgt);
     if (PERF) (window.__cam ||= []).push([filmT, camera.position.x, camera.position.y, camera.position.z, tgt.x, tgt.y, tgt.z]);
     camera.near = Math.max(0.05, dist * 0.02);
@@ -687,24 +679,30 @@ export default async function run(stage, ctx) {
     const ra = t * 0.15;
     rim.position.set(tgt.x + Math.cos(ra) * 20, tgt.y + 8, tgt.z + 20 + Math.sin(ra) * 6);
     rim.target.position.copy(tgt);
-    // 景深：焦點在鏡頭看的地方；開場的點一開始整團失焦，聚起來時焦點拉近
+    // 景深：焦點在鏡頭看的地方；點還散著時整團失焦，聚好就對焦清楚
     const fd = camera.position.distanceTo(tgt);
     bokeh.uniforms.focus.value = fd;
-    PU.uFocus.value = fd * (1 + PU.uScatter.value * 1.2);
-    PU.uAperture.value = 0.3 + 1.1 * PU.uScatter.value; // 點還散著時整團失焦，聚好就對焦清楚
-    // 離焦點 ±70% 的距離才糊到上限
+    for (const id in V) {
+      const PU = V[id].PU;
+      PU.uFocus.value = fd * (1 + PU.uScatter.value * 1.2);
+      PU.uAperture.value = 0.3 + 1.1 * PU.uScatter.value;
+    }
     bokeh.uniforms.aperture.value = (0.0093 / dist) * (wide ? 0.6 : 1);
     bokeh.uniforms.maxblur.value = si >= 5 ? 0.014 : 0.0065; // 最後兩個鏡頭：高鐵後半段明顯糊掉
-    // 開場的點沒有寫進深度，後製的景深會把它們當成背景一起糊掉：點自己算失焦，開場先關掉後製的
-    bokeh.enabled = !(si === 0 && points.visible) && !wide; // 第 5 個鏡頭是遠景、本來就幾乎不糊，景深後製很吃效能，關掉；最後兩個鏡頭靠它把高鐵後半段糊掉
+    // 點沒有寫進深度，後製的景深會把它們當成背景一起糊掉：有點在聚的時候先關掉後製的（點自己算失焦）；第 5 個鏡頭是遠景，也關掉省效能
+    const anyPts = Object.values(V).some((o) => o.pts.visible);
+    // 景深打開時慢慢糊上去（不要一格就跳出來）
+    bokK += ((!anyPts && !wide ? 1 : 0) - bokK) * (1 - Math.exp(-dt * 2.5));
+    bokeh.enabled = bokK > 0.02;
+    bokeh.uniforms.maxblur.value *= bokK;
     composer.render(dt);
-    // 最後兩個鏡頭：每一台的名字
+    // 第 6 個鏡頭：飛機、高鐵的名字
     for (const el2 of stage.querySelectorAll('#ftags .tag')) {
       const key = el2.dataset.k;
-      const on = si === 5 && !portrait() && (key === 'near' || (others[key] && others[key].grow.x > 0.9));
+      const on = si === 5 && !portrait() && V[key].shown && V[key].PU.uSweep.value < boxes[key].min.x;
       el2.classList.toggle('on', on);
       if (!on) continue;
-      const p = key === 'near' ? new THREE.Vector3(-6, 3.6, 2) : key === 'plane' ? new THREE.Vector3(-INFO.plane.len * 0.45, 19, LANES.plane) : new THREE.Vector3(-32, 4.8, LANES.train);
+      const p = key === 'plane' ? new THREE.Vector3(-INFO.plane.len * 0.45, 19, LANES.plane) : new THREE.Vector3(-32, 4.8, LANES.train);
       const s = toScreen(p, camera, canvas);
       el2.style.transform = `translate(${s.x}px, ${s.y}px) translate(-50%, -100%)`;
     }
