@@ -163,6 +163,8 @@ function skMaterial(name, part, tag = '') {
   const f = SK_META.materials[name] || [0.5, 0.5, 0.5, 1];
   const base = new THREE.Color().setRGB(f[0], f[1], f[2]);
   const phys = (o) => new THREE.MeshPhysicalMaterial({side: THREE.DoubleSide, ...o});
+  // 尾門上的尾燈燈殼（光條下半截沒有燈罩蓋著的那一塊）：和燈罩一樣是亮面的黑，關燈時整條尾燈都是黑的
+  if (name === 'black_base' && part === 'liftgate') return phys({color: '#040405', roughness: 0.1, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 0.35});
   switch (name) {
     case 'Material_2125765635':
       return phys({color: '#848990', metalness: 0.5, roughness: 0.38, clearcoat: 0.35, clearcoatRoughness: 0.25, envMapIntensity: 0.65});
@@ -174,8 +176,8 @@ function skMaterial(name, part, tag = '') {
     case 'glass_roof_panorama':
       return phys({color: '#060709', roughness: 0.22, specularIntensity: 0.15, envMapIntensity: 0.15, transparent: true, opacity: 0.96, depthWrite: false});
     case 'glass_headlight222':
-      // 尾燈、尾門光條的燈罩：深灰黑的煙燻玻璃（新款 Model Y 關著的時候幾乎看不到紅色，亮起來才是一條細細的紅光；照實車照片）
-      if (part !== 'front') return phys({color: '#141619', roughness: 0.05, metalness: 0.15, transparent: true, opacity: 0.86, envMapIntensity: 0.7, depthWrite: false});
+      // 尾燈、尾門光條的燈罩：黑色的亮面燻黑玻璃（新款 Model Y 關著的時候是黑的，亮起來才是一條細細的紅光；照實車照片）
+      if (part !== 'front') return phys({color: '#050607', roughness: 0.04, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.03, transparent: true, opacity: 0.95, envMapIntensity: 0.35, depthWrite: false});
       return phys({color: '#dfe6ea', roughness: 0.05, transparent: true, opacity: 0.22, envMapIntensity: 0.8, depthWrite: false});
     case 'front_white_light':
       return mat.lamp('#f2f6ff', 'bar', 3.6, 0.12, '#e8edf2');
@@ -406,7 +408,7 @@ export function buildCar() {
       continue;
     }
     // 材質照零件分開快取的：擋風玻璃、尾門、車尾，還有燈罩（車頭透明、車尾紅色，不能共用同一份）
-    const key = g.mat + '|' + (['windshield', 'liftgate', 'rear'].includes(g.part) || g.mat === 'glass_headlight222' || g.mat === 'red_plastic' ? g.part : '') + g.tag;
+    const key = g.mat + '|' + (['windshield', 'liftgate', 'rear'].includes(g.part) || ['glass_headlight222', 'red_plastic', 'black_base'].includes(g.mat) ? g.part : '') + g.tag;
     if (!matCache.has(key)) matCache.set(key, skMaterial(g.mat, g.part, g.tag));
     const m = matCache.get(key);
     const o = mesh(skGeo(g), m);
@@ -580,7 +582,7 @@ export function buildCar() {
     const h = hit(shell.body || [], [-1.98 * SXZ, 1.075 * SY, -3], [0, 0, 1]);
     const port = new THREE.Group();
     // 和尾燈燈罩同一種煙燻玻璃：關著的時候融在尾燈裡，拆開時才看得出是一扇小門
-    const lidM = new THREE.MeshPhysicalMaterial({color: '#141619', roughness: 0.05, metalness: 0.15, transparent: true, opacity: 0.86, envMapIntensity: 0.7, depthWrite: false, side: THREE.DoubleSide});
+    const lidM = new THREE.MeshPhysicalMaterial({color: '#050607', roughness: 0.04, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.03, transparent: true, opacity: 0.95, envMapIntensity: 0.35, depthWrite: false, side: THREE.DoubleSide});
     port.add(mesh(span([-0.045, -0.026, -0.0015], [0.045, 0.026, 0.0015], 0.01), lidM));
     if (h) {
       port.position.copy(h.p).addScaledVector(h.n, 0.0015);
