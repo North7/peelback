@@ -184,6 +184,146 @@ for z in np.arange(3.0, 30.45, 0.5):
     WING.append([round(float(z), 2), round(float(le), 3), round(float(te), 3), round(float(near[:, 1].mean()), 3), round(float(sel[:, 1].max()), 3), round(float(sel[:, 1].min()), 3)])
 
 print('PARTS', {k: sum(1 for p in info if p == k) for k in set(info)})
+
+# ---- 主輪艙那一段的機腹整流罩：下載的模型在這裡缺了好幾塊（只剩斜板掛著，網頁上像一片白布垂下來）。
+# 真的 A350 整流罩是一整塊凸出來的殼：每 0.25 公尺切一刀，取整流罩＋機身在那一刀的點，做「下緣凸包」（像用保鮮膜從外面包起來），
+# 一段一段接成一整片平滑的外殼，缺的洞和掛著的板子都包在裡面。外推 1.5 公分蓋在原本的面上面。
+from mathutils.bvhtree import BVHTree
+HULL_LST = [(P, T) for (part, mk, tag), lst in groups.items() if part == 'belly' for P, T in lst] + FUSE_COMPS
+stt = np.array(st)
+HP = np.concatenate([P[np.unique(T)] for P, T in HULL_LST])
+HP = HP[HP[:, 1] < CY - 0.8]
+def lower_env(pts):
+    """pts: (z, y)。回傳 y(z) 的下緣凸包（z 由小到大）"""
+    pts = sorted(set(map(tuple, np.round(pts, 4))))
+    h = []
+    for p in pts:
+        while len(h) >= 2 and (h[-1][0] - h[-2][0]) * (p[1] - h[-2][1]) - (h[-1][1] - h[-2][1]) * (p[0] - h[-2][0]) <= 0: h.pop()
+        h.append(p)
+    return np.array(h)
+ZCAP = 3.3
+# 範圍＝翼根那一段（z = 3 那一刀的前緣到後緣）
+WP_ALL = np.concatenate([P[np.unique(T)] for (part, mk, tag), lst in groups.items() if part in ('wings', 'slats', 'flaps') and tag.startswith('R') for P, T in lst])
+WR = WP_ALL[(WP_ALL[:, 2] > 2.5) & (WP_ALL[:, 2] < ZCAP)]
+T0, T1 = NOSE_X - WR[:, 0].max() + 0.3, NOSE_X - WR[:, 0].min() - 0.3
+# 用三角形直接切出翼根的剖面（頂點太疏，有的刀抓不到機翼下表面）
+ROOT_CUTS = [(zc, slice_z(WLST, zc)) for zc in (2.9, 3.1, 3.3)]
+NS = 48
+# 整段整流罩：前後端照下載模型的整流罩（機腹那一大片）
+BELLY_P = np.concatenate([P[np.unique(T)] for (part, mk, tag), lst in groups.items() if part == 'belly' for P, T in lst])
+BELLY_P = BELLY_P[BELLY_P[:, 1] < CY - 0.8]
+T0, T1 = NOSE_X - BELLY_P[:, 0].max() + 0.3, NOSE_X - BELLY_P[:, 0].min() - 0.3
+HULL_T = np.arange(T0, T1 + 1e-6, 0.25)
+SL = []
+for t in HULL_T:
+    x = NOSE_X - t
+    sel = HP[np.abs(HP[:, 0] - x) < 0.35]
+    zy = np.stack([np.abs(sel[:, 2]), sel[:, 1]], -1)
+    # 網頁上的機身是照 STATIONS 程式畫的橢圓（比下載的機身略胖），也要包進來，不然會從整流罩穿出來
+    rz_, ry_, dy_ = (float(np.interp(t, stt[:, 0], stt[:, c])) + (0.03 if c < 3 else 0) for c in (1, 2, 3))
+    th_ = np.radians(np.arange(90, 181, 2))
+    zy = np.vstack([zy, np.stack([rz_ * np.sin(th_), CY + dy_ + ry_ * np.cos(th_)], -1)])
+    # 側邊只包到整流罩的寬度（機身側面不要塗白）
+    bz = BELLY_P[np.abs(BELLY_P[:, 0] - x) < 0.35]
+    zf = min(ZCAP, float(np.abs(bz[:, 2]).max())) if len(bz) else 0.5
+    zy = zy[(zy[:, 0] <= zf) & (zy[:, 1] < CY - 0.8)]
+    # 機翼下表面（翼根那幾點）：整流罩上緣要接到這裡
+    for zc, cut in ROOT_CUTS:
+        near = cut[np.abs(cut[:, 0] - x) < 0.3]
+        if len(near) and zf > 2.8: zy = np.vstack([zy, [[zc, near[:, 1].min()]]])
+    zy = np.vstack([zy, [[0.0, zy[zy[:, 0] < 0.8, 1].min() if (zy[:, 0] < 0.8).any() else zy[:, 1].min()]]])
+    env = lower_env(zy)
+    seg = np.r_[0, np.cumsum(np.hypot(*np.diff(env, axis=0).T))]
+    u = np.linspace(0, seg[-1], NS)
+    SL.append(np.stack([np.interp(u, seg, env[:, 0]), np.interp(u, seg, env[:, 1])], -1))
+SL = np.array(SL)
+for _ in range(2):
+    SL[1:-1] = (SL[:-2] + SL[1:-1] * 2 + SL[2:]) / 4
+HV = []
+for k, t in enumerate(HULL_T):
+    # 兩端 1 公尺慢慢往內收 4 公分，收進原本的整流罩裡面，看不到切口
+    e = min(t - T0, T1 - t)
+    off = 0.015 if e > 1.0 else -0.04 + 0.055 * e
+    for z, y in SL[k]:
+        HV.append((NOSE_X - t, y - off, z + (off * 0.4 if z > 1.0 else 0.0)))
+HV = np.array(HV, np.float32)
+HF = []
+for k in range(len(HULL_T) - 1):
+    for j in range(NS - 1):
+        a = k * NS + j; b = a + NS
+        HF += [[a, a + 1, b + 1], [a, b + 1, b]]
+HF = np.array(HF, np.int64)
+A, B_, C = HV[HF[NS * 2, 0]], HV[HF[NS * 2, 1]], HV[HF[NS * 2, 2]]
+if np.cross(B_ - A, C - A)[1] > 0: HF = HF[:, ::-1].copy()  # 底部的面要朝下
+print('HULL t', round(float(T0), 2), round(float(T1), 2))
+print('HULL', len(HV), 'verts', 'outer z', np.round(SL[:, -1, 0].min(), 2), np.round(SL[:, -1, 0].max(), 2), 'bottom y', np.round(SL[:, 0, 1].min(), 2))
+mirror_add('belly', 'shell', HV, HF, 'hull')
+
+# ---- 主輪艙、翼根下面的洞：從下面往上打線，打不到外殼（直接看進機身裡）的格子，用旁邊的高度補一片關起來的艙門 ----
+ext = [(P, T) for (part, mk, tag), lst in groups.items() if part in ('belly', 'wings', 'flaps', 'fairings', 'slats') and not tag.startswith('L') and 'hull' not in tag for P, T in lst]
+ext += FUSE_COMPS
+Vs = []; Fs = []; off = 0
+for P, T in ext:
+    Vs.extend(P.tolist()); Fs.extend((T + off).tolist()); off += len(P)
+bvh = BVHTree.FromPolygons(Vs, Fs)
+DX, DZ = 0.1, 0.1
+xs = np.arange(-6.0, 8.0 + 1e-6, DX); zs = np.arange(0.0, 7.0 + 1e-6, DZ)
+H = np.full((len(xs), len(zs)), np.nan)
+for i, x in enumerate(xs):
+    for j, z in enumerate(zs):
+        hit = bvh.ray_cast(Vector((x, -3.0, z)), Vector((0, 1, 0)), 8.0)
+        # 打到的面要朝下（從下面看得到）；打到朝上的面＝從背面看過去，畫面上是透空的
+        if hit[0] is not None and hit[0][1] < 4.9 and hit[1][1] < -0.05: H[i, j] = hit[0][1]
+# 洞：被外殼包圍（四個方向都找得到外殼）但自己打不到的格子
+hole = np.zeros_like(H, bool)
+for i in range(1, len(xs) - 1):
+    for j in range(len(zs) - 1):
+        if not np.isnan(H[i, j]): continue
+        col = H[:, j]; row = H[i, :]
+        if np.isnan(col[:i]).all() or np.isnan(col[i + 1:]).all(): continue
+        if np.isnan(row[j + 1:]).all(): continue
+        hole[i, j] = True
+# 只補主輪艙附近（翼根下面）
+for i, x in enumerate(xs):
+    for j, z in enumerate(zs):
+        if not (-4.0 < x < 5.5 and 3.0 < z < 7.0): hole[i, j] = False
+# 洞裡零星打到的小碎塊（原模型起落架支柱、艙內的東西）也當成洞：四周有三面以上是洞的格子併進來
+for _ in range(4):
+    nb = np.zeros_like(hole, int)
+    nb[1:, :] += hole[:-1, :]; nb[:-1, :] += hole[1:, :]; nb[:, 1:] += hole[:, :-1]; nb[:, :-1] += hole[:, 1:]
+    hole = hole | ((nb >= 3) & ~np.isnan(H)) | ((nb >= 2) & np.isnan(H) & (nb > 0))
+# 洞外面一圈（貼著洞的外殼格子）：高度當邊界
+ring = np.zeros_like(hole)
+ring[1:, :] |= hole[:-1, :]; ring[:-1, :] |= hole[1:, :]; ring[:, 1:] |= hole[:, :-1]; ring[:, :-1] |= hole[:, 1:]
+ring &= ~hole & ~np.isnan(H)
+# 格點：洞和那一圈的四個角都要。邊界格點取旁邊外殼裡最高（最裡面）的高度，補片才會整片藏在外殼後面、只從洞裡露出來
+NX, NZ = len(xs) + 1, len(zs) + 1
+gx = np.concatenate([xs - DX / 2, [xs[-1] + DX / 2]]); gz = np.concatenate([zs - DZ / 2, [zs[-1] + DZ / 2]])
+node = np.full((NX, NZ), np.nan); need = np.zeros((NX, NZ), bool); fixed = np.zeros((NX, NZ), bool)
+for i, j in zip(*np.where(hole | ring)):
+    for c in ((i, j), (i + 1, j), (i, j + 1), (i + 1, j + 1)):
+        need[c] = True
+        if ring[i, j]:
+            node[c] = H[i, j] if np.isnan(node[c]) else max(node[c], H[i, j]); fixed[c] = True
+free = need & ~fixed
+node[free] = np.nanmean(node[fixed])
+for _ in range(3000):  # 拉普拉斯平滑：洞裡的高度＝四周平均，整片像拉緊的膜
+    pad = np.pad(node, 1, constant_values=np.nan)
+    st4 = np.stack([pad[:-2, 1:-1], pad[2:, 1:-1], pad[1:-1, :-2], pad[1:-1, 2:]])
+    avg = np.nanmean(np.where(np.isnan(st4), np.nan, st4), axis=0)
+    node[free] = avg[free]
+quads = []
+for i, j in zip(*np.where(hole | ring)):
+    ys = [node[i, j], node[i + 1, j], node[i + 1, j + 1], node[i, j + 1]]
+    if any(np.isnan(ys)): continue
+    quads.append([(gx[i], ys[0] + 0.012, gz[j]), (gx[i + 1], ys[1] + 0.012, gz[j]), (gx[i + 1], ys[2] + 0.012, gz[j + 1]), (gx[i], ys[3] + 0.012, gz[j + 1])])
+print('HOLES', int(hole.sum()), 'filled', len(quads))
+if quads:
+    P = np.array([v for q in quads for v in q], np.float32)
+    # 面朝下（從飛機下面看得到）
+    T = np.array([[k * 4, k * 4 + 1, k * 4 + 2, k * 4, k * 4 + 2, k * 4 + 3][a:a + 3] for k in range(len(quads)) for a in (0, 3)], np.int64)
+    mirror_add('belly', 'shell', P, T, 'door')
+
 json.dump({'NOSE_X': NOSE_X, 'CY': CY, 'STATIONS': st}, open(os.path.join(outdir, 'plane_meas.json'), 'w'), indent=1)
 
 # ================= 引擎：Trent XWB（組好的那一台，y > 7.5），換到 A350 的位置 =================

@@ -1071,7 +1071,7 @@ export function buildPlane() {
     }
     fuelObjs.push(mesh(loft(tank, 0.02, 0.98), fuelM));
   }
-  fuelObjs.push(mesh(span([xAt(38), CY - 2.8, -1.5], [xAt(31), CY - 1.6, 1.5], 0.3), fuelM));
+  fuelObjs.push(mesh(span([xAt(37.5), CY - 2.55, -1.1], [xAt(31.5), CY - 1.6, 1.1], 0.3), fuelM)); // 中央油箱（翼根中間）
   piece('fuelTank', fuelObjs, [0, 1.2, 0], 3);
 
   // ================= 第二層：客艙 =================
