@@ -247,3 +247,26 @@ button { font: inherit; color: inherit; }
 .fcard.left .in { left: auto; right: 48px; transform-origin: 100% 100%; }
 .fcard.left .lead { left: auto; right: 4px; transform-origin: 100% 50%; transform: rotate(38deg) scaleX(0); }
 .fcard.left.on .lead { transform: rotate(38deg) scaleX(1); }
+
+/* 電影版：每個鏡頭的字幕（一行一行從遮罩下面升上來） */
+.chap { position: absolute; left: var(--gut); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 80px); z-index: 10; max-width: min(520px, 40vw); text-shadow: 0 0 14px var(--bg), 0 0 4px var(--bg); transition: opacity 0.5s var(--out), filter 0.5s; }
+.chap.off { opacity: 0; filter: blur(6px); pointer-events: none; }
+.chap em { display: block; font-style: normal; font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.16em; color: var(--accent); margin-bottom: 12px; opacity: 0; transition: opacity 0.5s; }
+.chap h2 { margin: 0; font-family: var(--f-zh); font-weight: 900; font-size: clamp(28px, 3.6vw, 48px); line-height: 1.15; overflow: hidden; padding-bottom: 0.06em; }
+.chap p { margin: 12px 0 0; font-family: var(--f-zh); font-size: clamp(14px, 1.2vw, 16px); line-height: 1.7; color: var(--muted); overflow: hidden; }
+.chap h2 span, .chap p span { display: inline-block; transform: translateY(110%); opacity: 0; }
+.chap.in em { opacity: 1; }
+.chap.in h2 span { animation: unmask 0.9s var(--out) forwards; }
+.chap.in p span { animation: unmask 0.9s var(--out) 0.12s forwards; }
+@keyframes unmask { to { transform: none; opacity: 1; } }
+.chap .cta { display: none; }
+.chap.withcta .cta { display: inline-flex; animation: rise0 0.8s var(--out) 0.3s both; }
+.meter { transition: opacity 0.6s var(--out), filter 0.6s; }
+.meter.off { opacity: 0; filter: blur(6px); }
+@media (max-width: 700px) {
+  .chap { right: var(--gut); max-width: none; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 66px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chap h2 span, .chap p span { transform: none; opacity: 1; animation: none; }
+}
+.chap .cta { text-shadow: none; }

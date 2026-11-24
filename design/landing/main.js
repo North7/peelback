@@ -1,5 +1,6 @@
 // 剝剝看介紹頁的首屏樣稿：五個概念放在同一頁，下面一排切換（#1 #2 #3 #6 #9）。
 import {LOGO} from '../../kit/logo.js';
+import c0 from './c0_film.js';
 import c1 from './c1_particles.js';
 import c2 from './c2_scan.js';
 import c3 from './c3_freeze.js';
@@ -7,6 +8,7 @@ import c6 from './c6_scale.js';
 import c9 from './c9_poster.js';
 
 const CONCEPTS = [
+  {k: 'film', mark: '▶', name: '電影版', run: c0},
   {k: '1', name: '粒子變形', run: c1},
   {k: '2', name: '掃描線', run: c2},
   {k: '3', name: '凍結爆炸', run: c3},
@@ -40,7 +42,7 @@ app.innerHTML = `
   </header>
   <nav class="proto" id="proto" aria-label="首屏樣稿">
     <i class="ind" id="protoInd"></i>
-    ${CONCEPTS.map((c) => `<button data-k="${c.k}"><b>${c.k}</b><span>${c.name}</span></button>`).join('')}
+    ${CONCEPTS.map((c) => `<button data-k="${c.k}"><b>${c.mark || c.k}</b><span>${c.name}</span></button>`).join('')}
   </nav>`;
 
 const themeBtn = document.getElementById('theme');
@@ -62,7 +64,7 @@ themeBtn.onclick = () => {
 
 let cur = null, ac = null, runN = 0;
 async function show() {
-  const k = location.hash.slice(1) || '1';
+  const k = location.hash.slice(1) || 'film';
   const c = CONCEPTS.find((x) => x.k === k) || CONCEPTS[0];
   const n = ++runN;
   ac?.abort();
