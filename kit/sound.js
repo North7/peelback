@@ -60,15 +60,6 @@ export function createSound() {
       if (master) master.gain.value = v ? 0.5 : 0;
     },
     unlock,
-    dispose() {
-      try {
-        eng?.o.stop();
-        eng?.o2.stop();
-      } catch {}
-      eng = null;
-      ctx?.close?.();
-      ctx = null;
-    },
     pop(f = 600) {
       if (!ok()) return;
       tone(f, ctx.currentTime, 0.12, {to: f * 1.5, vol: 0.18});
