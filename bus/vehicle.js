@@ -173,7 +173,8 @@ export default {
         setBtn('xray', true, ['不透視', 'Solid']);
       }
       if (S.layer === 0) ctx.goHome();
-      showDiff();
+      // 「哪裡不一樣」面板只在本來就開著時更新內容，不要切換一次就強制打開（想看再按那顆按鈕）
+      if (!dc.hidden) showDiff();
       if (!quiet) {
         sound.whoosh(true);
         if (v === 'ev') sayPair('換成電動公車了！引擎、油箱和排氣管不見了，換成電池和馬達。亮起來的就是不一樣的地方。', 'Now it’s an electric bus! The engine, fuel tank and exhaust are gone, and batteries and a motor took their place. The glowing parts are what changed.');
