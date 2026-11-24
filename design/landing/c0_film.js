@@ -21,19 +21,24 @@ const REPLAY = '<svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"
 // 每個鏡頭：多久（自動播放）、焦點零件或要框住的車、方向、距離、名牌、字幕
 const SHOTS = [
   {dur: 9, form: true, focus: null, dir: [0.78, 0.3, -0.75], dist: 0.75},
-  {dur: 6.5, focus: null, dir: [0.75, 0.42, -0.85], dist: 1, card: ['Model Y', `${SPEC.length} 公尺・${Object.keys(PARTS).length} 個零件`]},
+  {dur: 5.5, focus: null, dir: [0.75, 0.42, -0.85], dist: 1, card: ['Model Y', `${SPEC.length} 公尺・${Object.keys(PARTS).length} 個零件`]},
   {dur: 5.5, focus: 'seats', dir: [0.3, 0.5, -0.92], dist: 0.6, card: [PARTS.seats.name, `${SPEC.seats} 個座位：前面兩個、後面三個`],
     chap: ['一層一層拆開', '外殼、座椅、底盤、電池，每一層都可以單獨拿出來看。']},
   {dur: 5.5, focus: 'battery', dir: [0.55, -0.3, -0.95], dist: 0.56, card: [PARTS.battery.name, `大約 ${SPEC.battery} 度電，可以把 5000 支手機充飽`],
     chap: ['每個零件都有名字', '點一下零件，名牌就跳出來，還會念給你聽。中文、英文、注音都有。']},
-  {dur: 6.5, fit: ['car', 'bus'], az: 0.68, el: 0.26,
+  {dur: 6, fit: ['car', 'bus'], az: 0.68, el: 0.26,
     chap: ['照真的大小做', '旁邊站一個 115 公分的小朋友。公車 12.2 公尺，差不多 11 個小朋友躺成一排。']},
-  {dur: 6.5, fit: ['car', 'bus', 'plane', 'train'], az: 0.62, el: 0.5,
+  {dur: 6, fit: ['car', 'bus', 'plane', 'train'], az: 0.62, el: 0.5,
     chap: ['四台車，四種大小', '最長的高鐵 304 公尺，12 節車廂一節一節都拆得開。']},
   {dur: Infinity, at: [-17, 3.2, 12], d: 52, az: 1.16, el: 0.13, night: true,
     chap: ['天黑了，燈亮起來', '車頭燈、尾燈、高鐵整排的窗、飛機翅膀上一閃一閃的燈，每一組都可以自己打開。'], cta: true},
 ];
 const LANES = {car: 0, bus: 4.2, train: 8.8, plane: 46};
+// 片子裡只從外面看高鐵和飛機：客艙裡的座椅、車底的機器、貨艙都不畫（省很多三角形；車窗的燈在外殼上，不受影響）
+const HIDE = {
+  train: ['cab', 'standard', 'business', 'accessible', 'racks', 'toilet', 'vending', 'saloon', 'motorCars', 'trailerCars', 'transformer', 'converter', 'motors', 'aux'],
+  plane: ['cockpit', 'first', 'business', 'premium', 'economy', 'galley', 'lav', 'bins', 'cabinFloor', 'cargo', 'fuelTank', 'core'],
+};
 // 晚上要開的燈（方向燈、降落燈不開：停著的車不會打方向燈）；閃的節奏和網站一樣
 const NIGHT_ON = {car: ['bar', 'head', 'tail', 'ambient'], bus: ['head', 'tail', 'sign'], train: ['head', 'tail', 'cabin'], plane: ['nav', 'beacon', 'strobe', 'logo', 'cabin']};
 const PATTERN = {
@@ -81,13 +86,17 @@ void main(){
 }`;
 
 export default async function run(stage, ctx) {
+  const T0 = performance.now();
+  const mark = (k) => console.log('[film]', k, Math.round(performance.now() - T0), 'ms');
   const car = await loadVehicle('car');
+  mark('car');
   if (!ctx.alive()) return;
   const canvas = document.createElement('canvas');
   canvas.className = 'gl';
   stage.append(canvas);
   const st = makeStage(canvas, {fov: 32, near: 0.05, far: 4000, ext: 8});
   const {scene, camera, renderer, sun, hemi} = st;
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5)); // 全畫面後製很吃效能，解析度上限壓低一點
   st.shade.geometry.dispose();
   st.shade.geometry = new THREE.PlaneGeometry(3000, 3000);
   const rim = new THREE.DirectionalLight('#eef2ff', 1.2); // 逆光：從後面慢慢繞著掃過去
@@ -175,6 +184,7 @@ export default async function run(stage, ctx) {
       p.applyMatrix4(e.m.matrixWorld).toArray(pPos, j * 3);
     }
   }
+  mark('sample');
   const pGeo = new THREE.BufferGeometry();
   pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
   pGeo.setAttribute('aRnd', new THREE.BufferAttribute(new Float32Array(NP * 4).map(() => Math.random()), 4));
@@ -256,11 +266,12 @@ export default async function run(stage, ctx) {
   boxes.kid = new THREE.Box3(new THREE.Vector3(0.9, 0, -2.9), new THREE.Vector3(1.5, KID, -2.3));
   const kidS = new Spring(0, 120, 11);
 
-  // ---------- 其他三台：背景慢慢下載，第 5、6 個鏡頭才沿著尺「畫」出來 ----------
+  // ---------- 其他三台：開播前就準備好（播放中才建會卡一下），第 5、6 個鏡頭才沿著尺「畫」出來 ----------
   const others = {};
-  const loadOthers = (async () => {
+  await (async () => {
     for (const id of ['bus', 'plane', 'train']) {
       const v = await loadVehicle(id);
+      mark(id);
       if (!ctx.alive()) return;
       const plane = new THREE.Plane(new THREE.Vector3(1, 0, 0), -0.01);
       boxes[id] = place(v, id);
@@ -274,11 +285,18 @@ export default async function run(stage, ctx) {
           m.clipShadows = true;
         }
       });
-      v.model.root.visible = false;
-      others[id] = {root: v.model.root, plane, len: INFO[id].len, grow: new Spring(0, 10, 6.3)};
-      await new Promise((r) => setTimeout(r, 50));
+      // 只藏網格、不藏整台：車上的燈一直算在場景裡，燈的數量不變，材質才不用重新編譯
+      const ms = [];
+      v.model.root.traverse((o) => {
+        if (!o.isMesh || !o.visible) return;
+        if (HIDE[id]?.includes(o.userData.part)) o.visible = false;
+        else ms.push(o);
+      });
+      for (const m of ms) m.visible = false;
+      others[id] = {root: v.model.root, meshes: ms, shown: false, plane, len: INFO[id].len, grow: new Spring(0, 10, 6.3)};
     }
   })();
+  if (!ctx.alive()) return;
 
   // ---------- 後製：燈的光暈（只有晚上）、景深 ----------
   const composer = new EffectComposer(renderer);
@@ -293,10 +311,47 @@ export default async function run(stage, ctx) {
   const resize = () => {
     composer.setPixelRatio(renderer.getPixelRatio());
     composer.setSize(canvas.clientWidth, canvas.clientHeight);
+    // 光暈用一半的解析度算：看起來差不多，輕很多
+    const pr = renderer.getPixelRatio();
+    bloom.setSize(Math.round((canvas.clientWidth * pr) / 2), Math.round((canvas.clientHeight * pr) / 2));
   };
   resize();
   const ro = new ResizeObserver(resize);
   ro.observe(canvas);
+  // 熱身：所有東西打開、從很遠的地方畫一次，著色器、影子、光暈都先準備好（不然第一次出現時會卡一下）
+  {
+    for (const id in others) {
+      others[id].plane.constant = 9999;
+      for (const m of others[id].meshes) m.visible = true;
+    }
+    kid.scale.setScalar(1);
+    sweepG.visible = true;
+    bloom.enabled = true;
+    bloom.strength = 0.01;
+    Object.assign(sun.shadow.camera, {left: -400, right: 400, top: 400, bottom: -400, near: 0.5, far: 3000});
+    sun.shadow.camera.updateProjectionMatrix();
+    sun.position.set(100, 800, -300);
+    camera.position.set(300, 160, -320);
+    camera.lookAt(-150, 0, 20);
+    camera.near = 1;
+    camera.far = 4000;
+    camera.updateProjectionMatrix();
+    const culled = [];
+    scene.traverse((o) => o.isMesh && o.frustumCulled && (culled.push(o), (o.frustumCulled = false)));
+    // 平行編譯（瀏覽器支援的話不會卡住主執行緒），再真的畫一次，把模型資料送進顯示卡
+    await renderer.compileAsync(scene, camera);
+    if (!ctx.alive()) return;
+    composer.render(0.016);
+    for (const o of culled) o.frustumCulled = true;
+    for (const id in others) {
+      others[id].plane.constant = -0.01;
+      for (const m of others[id].meshes) m.visible = false;
+    }
+    kid.scale.setScalar(0.0001);
+    sweepG.visible = false;
+    bloom.enabled = false;
+  }
+  mark('warm');
   const dayBg = new THREE.Color();
   let nightDriven = false; // 第 7 個鏡頭把頁面換成深色（離開時換回原本的）
   let themeBefore = null;
@@ -367,12 +422,38 @@ export default async function run(stage, ctx) {
     const base = 18 * Math.max(1, (portrait() ? 0.95 : 1.4) / camera.aspect);
     return {c: centerOf(s.focus), d: base * s.dist, az: Math.atan2(dir.x, -dir.z), el: Math.asin(dir.y)};
   };
-  const P0 = pose(0);
-  // 開場的鏡頭：從更遠、更低的地方慢慢推進來
-  const cam = {x: new Spring(C.x, 3, 3.4), y: new Spring(C.y + 0.6, 3, 3.4), z: new Spring(C.z, 3, 3.4), ld: new Spring(Math.log(P0.d * 2.2), 3, 3.4), az: new Spring(P0.az - 0.5, 3, 3.4), el: new Spring(P0.el - 0.1, 3, 3.4)};
-  const camK = (soft) => {
-    for (const k in cam) (cam[k].k = soft ? 3 : 8), (cam[k].c = soft ? 3.4 : 5.6);
+  // ---------- 鏡頭：整段一條時間軸。每個鏡頭一個位置，鏡頭經過時不停下來（三次 Hermite，速度連續） ----------
+  const START = [];
+  {
+    let a = 0;
+    for (const s of SHOTS) START.push(a), (a += s.dur);
+  }
+  // 每個鏡頭「到位」的時間：自己按著看（暫停）時停在這裡
+  const KEYT = [7.6, START[1] + 2.2, START[2] + 2.2, START[3] + 2.2, START[4] + 2.6, START[5] + 2.8, START[6] + 3.2];
+  const keys = () => {
+    const P = SHOTS.map((_, i) => pose(i));
+    const v = (p, dld = 0, daz = 0, del = 0) => [p.c.x, p.c.y, p.c.z, Math.log(p.d) + dld, p.az + daz, p.el + del];
+    return [[0, v(P[0], Math.log(2.2), -0.5, -0.1)], [6.5, v(P[0])], ...P.slice(1).map((p, i) => [KEYT[i + 1], v(p)]), [START[6] + 40, v(P[6], -0.18, 0.14, 0.02)]];
   };
+  const camAt = (T) => {
+    const K = keys(), n = K.length;
+    if (T <= K[0][0]) return K[0][1].slice();
+    if (T >= K[n - 1][0]) return K[n - 1][1].slice();
+    let i = 0;
+    while (K[i + 1][0] < T) i++;
+    const tan = (j) => {
+      const a = K[Math.max(0, j - 1)], b = K[Math.min(n - 1, j + 1)];
+      return a[1].map((x, k) => (b[1][k] - x) / (b[0] - a[0]));
+    };
+    const [t0, p0] = K[i], [t1, p1] = K[i + 1];
+    const m0 = tan(i), m1 = tan(i + 1);
+    const h = t1 - t0, u = (T - t0) / h, u2 = u * u, u3 = u2 * u;
+    const a0 = 2 * u3 - 3 * u2 + 1, b0 = u3 - 2 * u2 + u, a1 = -2 * u3 + 3 * u2, b1 = u3 - u2;
+    return p0.map((x, k) => a0 * x + b0 * h * m0[k] + a1 * p1[k] + b1 * h * m1[k]);
+  };
+  let filmT = 0, auto = false;
+  let camV = camAt(0);
+  const blend = {k: 1, from: null};
 
   const setPlayIcon = () => {
     const b = $('#play');
@@ -435,20 +516,20 @@ export default async function run(stage, ctx) {
   const go = async (i) => {
     const from = si;
     si = i;
-    shotT = 0;
-    camK(i === 0);
+    // 自動播放走到下一段：時間軸照常；自己跳過去：時間跳到那一段的開頭，鏡頭從現在的位置順順地接過去
+    if (!auto) {
+      filmT = START[i];
+      blend.from = camV.slice();
+      blend.k = 0;
+    }
+    shotT = filmT - START[i];
     hint.classList.add('gone');
     tau.to = i >= 1 && i <= 3 ? 1 : 0;
     kidS.to = i >= 4 ? 1 : 0;
     // 從後面跳回開場：點重新散開
-    if (i === 0 && from !== 0) {
-      PU.uScatter.value = 1;
-      cam.ld.x = Math.log(P0.d * 2.2);
-    }
+    if (i === 0 && from !== 0) PU.uScatter.value = 1;
     setNight(!!SHOTS[i].night);
     setText(i);
-    if (i >= 4) await loadOthers;
-    if (si !== i || !ctx.alive()) return;
     for (const id in others) others[id].grow.to = (id === 'bus' && i >= 4) || i >= 5 ? 1 : 0;
     if (!playing) setTimeout(() => si === i && i < SHOTS.length - 1 && hint.classList.remove('gone'), 3000);
   };
@@ -476,12 +557,19 @@ export default async function run(stage, ctx) {
   // 測試用：網址加 ?speed=4 快轉（預覽視窗一秒只有幾格時才看得完一遍）
   const SPEED = +new URLSearchParams(location.search).get('speed') || 1;
   let t = 0;
-  const stop = loop((dt0) => {
+  const stop = loop((dt0, _t, raw) => {
     const dt = dt0 * SPEED;
+    if (raw > 0.09 && t > 1) console.log('[film] hitch', Math.round(raw * 1000), 'ms at', filmT.toFixed(1), 'shot', si);
     t += dt;
-    // 自動播放：這個鏡頭演完就走下一個；進度條跟著長
-    if (playing && shotT + dt > SHOTS[si].dur && si < SHOTS.length - 1) pg.go(si + 1);
-    shotT += dt;
+    // 時間軸：自動播放一直往前走；暫停時只走到這個鏡頭到位為止。走過下一段的開頭就換段（進度條跟著長）
+    if (playing) filmT += dt;
+    else if (filmT < KEYT[si]) filmT = Math.min(KEYT[si], filmT + dt);
+    if (si < SHOTS.length - 1 && filmT >= START[si + 1]) {
+      auto = true;
+      pg.go(si + 1);
+      auto = false;
+    }
+    shotT = filmT - START[si];
     const cur = progB[si]?.querySelector('i');
     if (cur) cur.style.setProperty('--p', isFinite(SHOTS[si].dur) ? clamp01(shotT / SHOTS[si].dur) : 1);
     // 開場：點聚起來（焦點同時拉近），然後一道光從車頭掃到車尾
@@ -515,7 +603,11 @@ export default async function run(stage, ctx) {
       const o = others[id];
       const e = smooth(o.grow.step(dt));
       o.plane.constant = e > 0 ? e * (o.len + 2) : -0.01;
-      o.root.visible = e > 0.002;
+      const show = e > 0.002;
+      if (show !== o.shown) {
+        o.shown = show;
+        for (const m of o.meshes) m.visible = show;
+      }
     }
     if (num.t < 1) {
       num.t = Math.min(1, num.t + dt / 1.6);
@@ -550,19 +642,18 @@ export default async function run(stage, ctx) {
       L.light.intensity = L.base * L.lv;
     }
     // 鏡頭
-    const P = pose(si);
-    cam.x.to = P.c.x;
-    cam.y.to = P.c.y;
-    cam.z.to = P.c.z;
-    cam.ld.to = Math.log(P.d);
-    cam.az.to = P.az;
-    cam.el.to = P.el;
-    for (const key in cam) cam[key].step(dt);
+    let V = camAt(filmT);
+    if (blend.k < 1) {
+      blend.k = RM.matches ? 1 : Math.min(1, blend.k + dt / 1.8);
+      const e = smooth(blend.k);
+      V = V.map((x, k) => blend.from[k] + (x - blend.from[k]) * e);
+    }
+    camV = V;
     orbit.step(dt);
-    const dist = Math.exp(cam.ld.x);
-    const az = cam.az.x + orbit.yaw.x + (RM.matches ? 0 : Math.sin(t * 0.09) * 0.04) + (SHOTS[si].night && !RM.matches ? shotT * 0.006 : 0);
-    const el = cam.el.x + orbit.pitch.x * 0.5;
-    tgt.set(cam.x.x, cam.y.x, cam.z.x);
+    const dist = Math.exp(V[3]);
+    const az = V[4] + orbit.yaw.x + (RM.matches ? 0 : Math.sin(t * 0.09) * 0.03);
+    const el = V[5] + orbit.pitch.x * 0.5;
+    tgt.set(V[0], V[1], V[2]);
     camera.position.set(tgt.x + Math.sin(az) * Math.cos(el) * dist, tgt.y + Math.sin(el) * dist, tgt.z - Math.cos(az) * Math.cos(el) * dist);
     if (!RM.matches) camera.position.add(tmp.set(Math.sin(t * 0.5), Math.sin(t * 0.37), Math.cos(t * 0.43)).multiplyScalar(dist * 0.004));
     camera.lookAt(tgt);
@@ -590,7 +681,7 @@ export default async function run(stage, ctx) {
     // 離焦點 ±70% 的距離才糊到上限
     bokeh.uniforms.aperture.value = (0.0093 / dist) * (wide ? 0.6 : 1);
     // 開場的點沒有寫進深度，後製的景深會把它們當成背景一起糊掉：點自己算失焦，開場先關掉後製的
-    bokeh.enabled = !(si === 0 && points.visible);
+    bokeh.enabled = !(si === 0 && points.visible) && !wide; // 遠景本來就幾乎不糊，景深後製很吃效能，關掉
     composer.render(dt);
     // 最後兩個鏡頭：每一台的名字
     for (const el2 of stage.querySelectorAll('#ftags .tag')) {

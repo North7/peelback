@@ -119,10 +119,11 @@ export function loop(fn) {
   let id = 0, last = performance.now(), t = 0, on = true;
   const tick = (now) => {
     if (!on) return;
-    const dt = Math.min(0.05, (now - last) / 1000);
+    const raw = (now - last) / 1000;
+    const dt = Math.min(0.05, raw);
     last = now;
     t += dt;
-    fn(dt, t);
+    fn(dt, t, raw);
     id = requestAnimationFrame(tick);
   };
   id = requestAnimationFrame(tick);
