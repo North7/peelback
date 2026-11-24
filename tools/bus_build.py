@@ -282,7 +282,14 @@ for s_ in (1, -1):
         if s_ > 0 and (DOOR_F[1] - 0.05 < xm < DOOR_F[0] + 0.05 or DOOR_M[1] - 0.05 < xm < DOOR_M[0] + 0.05): continue
         if abs(xm - FA) < ARCH_R + 0.05 or abs(xm - RA) < ARCH_R + 0.05: continue
         keep(box('sm', (xm, 0.52, s_ * (HW + 0.008)), (0.09, 0.045, 0.02), bevel=0.01), 'side', 'marker')
-    keep(box('skirt', (0, 0.32, s_ * (HW + 0.006)), (L - 0.4, 0.05, 0.02), bevel=0.01), 'side', 'black')
+    # 橡膠條在輪拱前後斷開（不會從輪子前面橫過去）；車門那一側在車門處也斷開
+    cuts = [(FA - ARCH_R - 0.04, FA + ARCH_R + 0.04), (RA - ARCH_R - 0.04, RA + ARCH_R + 0.04)]
+    if s_ > 0: cuts += [(DOOR_F[1] - 0.02, DOOR_F[0] + 0.02), (DOOR_M[1] - 0.02, DOOR_M[0] + 0.02)]
+    x0 = -(L - 0.4) / 2
+    for a, b in sorted(cuts) + [(HL, HL)]:
+        x1 = min(a, (L - 0.4) / 2)
+        if x1 - x0 > 0.15: keep(box('skirt', ((x0 + x1) / 2, 0.32, s_ * (HW + 0.006)), (x1 - x0, 0.05, 0.02), bevel=0.01), 'side', 'black')
+        x0 = max(x0, b)
 
 # 右後角上面直條百葉（散熱器出風，KKA-2531／KKA-3131 照片）、下面兩塊檢修蓋；左邊後輪前面腰線上的圓形加油口蓋
 keep(box('louv', (-5.62, 1.85, HW + 0.002), (0.32, 0.62, 0.02), bevel=0.01), 'sideR', 'black')
