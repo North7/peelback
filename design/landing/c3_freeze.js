@@ -71,7 +71,7 @@ export default async function run(stage, ctx) {
   // ---------- 後製：景深 ----------
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bokeh = new BokehPass(scene, camera, {focus: 14, aperture: 0.0045, maxblur: 0.014});
+  const bokeh = new BokehPass(scene, camera, {focus: 14, aperture: 0.001, maxblur: 0.0065});
   composer.addPass(bokeh);
   composer.addPass(new OutputPass());
   const resize = () => {
@@ -176,7 +176,7 @@ export default async function run(stage, ctx) {
     else camera.setViewOffset(w, h, -w * 0.12, h * 0.04, w, h);
     focusD.to = camera.position.distanceTo(camT);
     bokeh.uniforms.focus.value = focusD.step(dt);
-    bokeh.uniforms.aperture.value = (si === 0 ? 0.0028 : 0.006) * (0.4 + 0.6 * smooth(k));
+    bokeh.uniforms.aperture.value = 0.0093 / camera.position.distanceTo(camT);
     composer.render(dt);
     // 名牌：跟著焦點上的零件
     const s = toScreen(centerOf(STOPS[si].id), camera, canvas);

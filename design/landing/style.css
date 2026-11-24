@@ -288,3 +288,7 @@ button { font: inherit; color: inherit; }
   .prog button.on i::after { transform: scaleX(var(--p, 0)); }
   .stage[data-k="film"] .meter { top: calc(max(16px, env(safe-area-inset-top)) + 80px); }
 }
+/* 疊在 3D 上的字：底下一層半透明＋模糊，邊緣淡掉（不畫框、不墊實色） */
+.stage[data-k="film"] .copy::before, .chap::before { content: ""; position: absolute; inset: -28px -36px -24px -36px; z-index: -1; border-radius: 28px; background: color-mix(in srgb, var(--bg) 58%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); -webkit-mask-image: radial-gradient(farthest-side, #000 62%, transparent); mask-image: radial-gradient(farthest-side, #000 62%, transparent); pointer-events: none; }
+.stage[data-k="film"] .copy { isolation: isolate; }
+.chap { isolation: isolate; }

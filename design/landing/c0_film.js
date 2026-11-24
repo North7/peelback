@@ -22,9 +22,9 @@ const REPLAY = '<svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"
 const SHOTS = [
   {dur: 9, form: true, focus: null, dir: [0.78, 0.3, -0.75], dist: 0.75},
   {dur: 6.5, focus: null, dir: [0.75, 0.42, -0.85], dist: 1, card: ['Model Y', `${SPEC.length} 公尺・${Object.keys(PARTS).length} 個零件`]},
-  {dur: 5.5, focus: 'seats', dir: [0.3, 0.5, -0.92], dist: 0.42, card: [PARTS.seats.name, `${SPEC.seats} 個座位：前面兩個、後面三個`],
+  {dur: 5.5, focus: 'seats', dir: [0.3, 0.5, -0.92], dist: 0.6, card: [PARTS.seats.name, `${SPEC.seats} 個座位：前面兩個、後面三個`],
     chap: ['一層一層拆開', '外殼、座椅、底盤、電池，每一層都可以單獨拿出來看。']},
-  {dur: 5.5, focus: 'battery', dir: [0.55, -0.3, -0.95], dist: 0.4, card: [PARTS.battery.name, `大約 ${SPEC.battery} 度電，可以把 5000 支手機充飽`],
+  {dur: 5.5, focus: 'battery', dir: [0.55, -0.3, -0.95], dist: 0.56, card: [PARTS.battery.name, `大約 ${SPEC.battery} 度電，可以把 5000 支手機充飽`],
     chap: ['每個零件都有名字', '點一下零件，名牌就跳出來，還會念給你聽。中文、英文、注音都有。']},
   {dur: 6.5, fit: ['car', 'bus'], az: 0.68, el: 0.26,
     chap: ['照真的大小做', '旁邊站一個 115 公分的小朋友。公車 12.2 公尺，差不多 11 個小朋友躺成一排。']},
@@ -286,7 +286,8 @@ export default async function run(stage, ctx) {
   const bloom = new UnrealBloomPass(new THREE.Vector2(4, 4), 0, 0.5, 4.5);
   bloom.enabled = false;
   composer.addPass(bloom);
-  const bokeh = new BokehPass(scene, camera, {focus: 10, aperture: 0.005, maxblur: 0.013});
+  // 景深要輕：大部分畫面是實的，只有比焦點近、遠很多的東西才微微糊開（糊的上限也壓低）
+  const bokeh = new BokehPass(scene, camera, {focus: 10, aperture: 0.001, maxblur: 0.0065});
   composer.addPass(bokeh);
   composer.addPass(new OutputPass());
   const resize = () => {
@@ -571,7 +572,7 @@ export default async function run(stage, ctx) {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     const wide = si >= 4;
     if (portrait()) camera.setViewOffset(w, h, 0, wide ? -h * 0.01 : h * 0.12, w, h);
-    else camera.setViewOffset(w, h, wide ? 0 : -w * 0.12, wide ? h * 0.17 : h * 0.04, w, h);
+    else camera.setViewOffset(w, h, wide ? 0 : -w * 0.14, wide ? h * 0.17 : si >= 2 ? h * 0.12 : h * 0.04, w, h);
     const E = Math.max(6, dist * 0.45);
     Object.assign(sun.shadow.camera, {left: -E, right: E, top: E, bottom: -E, near: 0.5, far: E * 8});
     sun.shadow.camera.updateProjectionMatrix();
@@ -585,7 +586,9 @@ export default async function run(stage, ctx) {
     const fd = camera.position.distanceTo(tgt);
     bokeh.uniforms.focus.value = fd;
     PU.uFocus.value = fd * (1 + PU.uScatter.value * 1.2);
-    bokeh.uniforms.aperture.value = (0.085 / dist) * (wide ? 0.5 : 1) * (si === 0 ? 0.5 : 0.4 + 0.6 * smooth(Math.max(k, wide ? 1 : 0)));
+    PU.uAperture.value = 0.3 + 1.1 * PU.uScatter.value; // 點還散著時整團失焦，聚好就對焦清楚
+    // 離焦點 ±70% 的距離才糊到上限
+    bokeh.uniforms.aperture.value = (0.0093 / dist) * (wide ? 0.6 : 1);
     // 開場的點沒有寫進深度，後製的景深會把它們當成背景一起糊掉：點自己算失焦，開場先關掉後製的
     bokeh.enabled = !(si === 0 && points.visible);
     composer.render(dt);
