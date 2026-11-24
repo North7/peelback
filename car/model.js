@@ -174,6 +174,8 @@ function skMaterial(name, part, tag = '') {
     case 'glass_roof_panorama':
       return phys({color: '#060709', roughness: 0.22, specularIntensity: 0.15, envMapIntensity: 0.15, transparent: true, opacity: 0.96, depthWrite: false});
     case 'glass_headlight222':
+      // 尾燈、尾門光條的燈罩：深紅色煙燻玻璃（關著的時候也是紅的；原本和頭燈共用透明玻璃，白天反光看起來白白的）
+      if (part !== 'front') return phys({color: '#7d1710', roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.72, envMapIntensity: 0.55, depthWrite: false});
       return phys({color: '#dfe6ea', roughness: 0.05, transparent: true, opacity: 0.22, envMapIntensity: 0.8, depthWrite: false});
     case 'front_white_light':
       return mat.lamp('#f2f6ff', 'bar', 3.6, 0.12, '#e8edf2');
@@ -570,13 +572,14 @@ export function buildCar() {
     piece('heatpump', out, [0.6, 0.85, 0.5], 5);
   }
   {
-    // 充電口：左後尾燈旁邊的小門（打一條射線找到車身表面）
-    const h = hit(shell.body || [], [-2.05 * SXZ, 0.98 * SY, -3], [0, 0, 1]);
+    // 充電口：藏在左後尾燈的燈殼裡（特斯拉車主手冊：充電口在車子左後方的尾燈組上）。蓋子就是尾燈燈罩的一塊，關著的時候看不出來
+    const h = hit(shell.body || [], [-1.98 * SXZ, 1.075 * SY, -3], [0, 0, 1]);
     const port = new THREE.Group();
-    // 充電口的小蓋子在尾燈燈殼裡：煙燻黑、平平的
-    port.add(mesh(span([-0.04, -0.032, -0.003], [0.04, 0.032, 0.003], 0.012), mat.gloss()));
+    // 和尾燈燈罩同一種紅色煙燻玻璃：關著的時候融在尾燈裡，拆開時才看得出是一扇小門
+    const lidM = new THREE.MeshPhysicalMaterial({color: '#7d1710', roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.72, envMapIntensity: 0.55, depthWrite: false, side: THREE.DoubleSide});
+    port.add(mesh(span([-0.045, -0.026, -0.0015], [0.045, 0.026, 0.0015], 0.01), lidM));
     if (h) {
-      port.position.copy(h.p).addScaledVector(h.n, 0.004);
+      port.position.copy(h.p).addScaledVector(h.n, 0.0015);
       port.lookAt(h.p.clone().addScaledVector(h.n, -1));
     }
     piece('chargePort', [port], [-0.4, 0.45, -0.7], 5);

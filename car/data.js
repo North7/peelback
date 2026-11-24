@@ -102,7 +102,7 @@ export const PARTS = {
     say: '熱泵像冷氣的相反，可以從外面的空氣裡搬熱回來，冬天幫車子和電池保暖。',
     fact: '冬天開暖氣比較省電，電動車就可以跑比較遠。'},
   chargePort: {name: '充電口', en: 'charging port',
-    say: '充電口藏在左後方的尾燈旁邊，打開小門，插上充電槍就可以充電。',
+    say: '充電口藏在左後方的尾燈裡：尾燈有一小塊其實是一扇小門，按一下打開，插上充電槍就可以充電。',
     fact: '就像手機一樣，沒電了就要充電。'},
 };
 
@@ -134,7 +134,7 @@ const EN = {
   frontMotor: ['One motor in front and one in back, so all four wheels push and the car slips less on wet roads.', 'A motor runs on electricity, so the car is quiet and has no exhaust pipe.'],
   rearMotor: ['The rear motor is bigger, and does most of the pushing in everyday driving.', 'Press the pedal and the motor has power right away, so it starts quickly.'],
   heatpump: ['A heat pump is like an air conditioner in reverse. It pulls heat in from the outside air to keep the car and battery warm in winter.', 'Heating uses less electricity, so the car can go farther in winter.'],
-  chargePort: ['The charging port hides next to the left tail light. Open the little door, plug in, and it charges.', 'Just like a phone: when it runs low, you charge it.'],
+  chargePort: ['The charging port hides inside the left tail light: a small piece of the light is really a little door. Press it open, plug in, and it charges.', 'Just like a phone: when it runs low, you charge it.'],
 };
 for (const [k, [sayEn, factEn]] of Object.entries(EN)) Object.assign(PARTS[k], {sayEn, factEn});
 export const partText = (id) => PARTS[id];
