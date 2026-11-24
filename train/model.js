@@ -346,7 +346,7 @@ export function buildTrain() {
   piece('saloon', skPart('interior'), [0, 7.5, 0], 2); // 第四層的集電弓、車頂電線在車頂上方，裡面的東西要抬得比它們高
 
   // ================= 第三層：車底 =================
-  piece('bogie', skPart('bogie'), [0, -0.3, 4.5], 3); // 車底的東西往旁邊（鏡頭這邊）移出來，放在鐵軌旁邊
+  piece('bogie', skPart('bogie'), [0, -0.3, -4.5], 3); // 車底的東西往旁邊（鏡頭這邊，左邊）移出來，放在鐵軌旁邊
   // 車輪：每一根車軸一組（兩個車輪＋車軸），整列 48 組，用 InstancedMesh 才能每組各自轉（下載模型的輪子合成一塊，轉不了）
   // 車軸位置：客車廂量到轉向架中心 +8.69、-8.47 m、軸距 2.53 m；車頭那節量到 +9.21、+6.71、-8.18、-10.68 m（12 車轉過來）
   const AXLES = [];
@@ -375,7 +375,7 @@ export function buildTrain() {
     return im;
   };
   const wheelM = mat.metal('#b3b8bd', 0.3);
-  piece('wheels', [wheelIM(AXLES, R_WHEEL, wheelM)], [0, -0.3, 7], 3);
+  piece('wheels', [wheelIM(AXLES, R_WHEEL, wheelM)], [0, -0.3, -7], 3);
   {
     // 牽引馬達：有馬達的車（1、5、12 車以外）每根車軸一個，掛在轉向架上、兩根車軸中間
     // 客車廂模型量到：轉向架中心在 +8.69、-8.47 m，軸距 2.53 m

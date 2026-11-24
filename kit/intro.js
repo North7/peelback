@@ -273,7 +273,9 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
   const hemi = new THREE.HemisphereLight('#ffffff', '#b9b2a6', 0.55);
   const rim = new THREE.DirectionalLight('#eef2ff', 1.2); // 逆光：從後面慢慢繞著掃過去
   scene.add(sun, sun.target, hemi, rim, rim.target);
-  const shadeMat = new THREE.ShadowMaterial({opacity: 0.22});
+  // 接影子的平面：和地面只差 3 公釐，鏡頭拉遠時顯示卡分不出前後，兩層會互相蓋來蓋去（地上的影子一直閃）。
+  // 地面不寫深度（當背景畫），影子這層再往前墊一點（和看車頁一樣）
+  const shadeMat = new THREE.ShadowMaterial({opacity: 0.22, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4});
   const shade = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000).rotateX(-Math.PI / 2), shadeMat);
   shade.position.y = 0.001;
   shade.receiveShadow = true;
@@ -298,6 +300,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
       #include <colorspace_fragment>
       }`,
   });
+  groundMat.depthWrite = false;
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000).rotateX(-Math.PI / 2), groundMat);
   ground.position.y = -0.002;
   ground.renderOrder = -1;

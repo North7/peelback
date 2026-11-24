@@ -13,13 +13,13 @@ const ICONS = {
 const WHEEL_C = Math.PI * R_WHEEL * 2;
 // 電怎麼走：一段一段亮給你看（每段 4.5 秒）
 const POWER_DEMO = [
-  {say: ['電從天上來！4 車和 9 車的集電弓頂著電線，把 25,000 伏特的電拿進來。', 'Power comes from above! The pantographs on cars 4 and 9 press on the wire and take in 25,000 volts.'], glow: ['pantograph'], at: [CAR_X[3] + 6.5, 4.6, 0, 24, [0.45, 0.5, 0.75]]},
-  {say: ['電沿著車頂的高壓電線，送到前、中、後三組。', 'It runs along the high-voltage cable on the roof to the front, middle and back units.'], glow: ['hvCable'], at: [CAR_X[3] - 10, 3.8, 0, 55, [0.35, 0.6, 0.72]]},
-  {say: ['主變壓器把太高的電變小，3、7、10 車底下各一台。', 'The main transformers under cars 3, 7 and 10 turn it down.'], glow: ['transformer'], at: [CAR_X[2], 0.9, 0.5, 15, [0.4, 0.3, 0.86]]},
-  {say: ['主變流器把電變成馬達要的樣子，要快要慢都聽它的。', 'The traction converters shape the electricity so the motors go faster or slower.'], glow: ['converter'], at: [CAR_X[1], 0.9, 0.5, 17, [0.4, 0.3, 0.86]]},
-  {say: ['36 個馬達轉起來，推著輪子往前跑！', 'All 36 motors spin and push the wheels!'], glow: ['motors'], at: [CAR_X[1] + 8.69, 0.6, 0.5, 9, [0.35, 0.3, 0.88]]},
-  {say: ['有馬達的叫動力車，一共 9 節。', 'Cars with motors are motor cars: 9 of them.'], glow: ['motorCars'], at: [CAR_X[2] - 6, 0, 3.3, 70, [0.25, 0.85, 0.47]]},
-  {say: ['1、5、12 車沒有馬達，叫拖車，底下放輔助電源，給冷氣和電燈用電。', 'Cars 1, 5 and 12 have no motors. They are trailers, with the auxiliary power for the lights and air conditioning.'], glow: ['trailerCars', 'aux'], at: [CAR_X[0] - 1, 0.6, 2, 26, [0.4, 0.55, 0.73]]},
+  {say: ['電從天上來！4 車和 9 車的集電弓頂著電線，把 25,000 伏特的電拿進來。', 'Power comes from above! The pantographs on cars 4 and 9 press on the wire and take in 25,000 volts.'], glow: ['pantograph'], at: [CAR_X[3] + 6.5, 4.6, 0, 24, [0.45, 0.5, -0.75]]},
+  {say: ['電沿著車頂的高壓電線，送到前、中、後三組。', 'It runs along the high-voltage cable on the roof to the front, middle and back units.'], glow: ['hvCable'], at: [CAR_X[3] - 10, 3.8, 0, 55, [0.35, 0.6, -0.72]]},
+  {say: ['主變壓器把太高的電變小，3、7、10 車底下各一台。', 'The main transformers under cars 3, 7 and 10 turn it down.'], glow: ['transformer'], at: [CAR_X[2], 0.9, -0.5, 15, [0.4, 0.3, -0.86]]},
+  {say: ['主變流器把電變成馬達要的樣子，要快要慢都聽它的。', 'The traction converters shape the electricity so the motors go faster or slower.'], glow: ['converter'], at: [CAR_X[1], 0.9, -0.5, 17, [0.4, 0.3, -0.86]]},
+  {say: ['36 個馬達轉起來，推著輪子往前跑！', 'All 36 motors spin and push the wheels!'], glow: ['motors'], at: [CAR_X[1] + 8.69, 0.6, -0.5, 9, [0.35, 0.3, -0.88]]},
+  {say: ['有馬達的叫動力車，一共 9 節。', 'Cars with motors are motor cars: 9 of them.'], glow: ['motorCars'], at: [CAR_X[2] - 6, 0, -3.3, 70, [0.25, 0.85, -0.47]]},
+  {say: ['1、5、12 車沒有馬達，叫拖車，底下放輔助電源，給冷氣和電燈用電。', 'Cars 1, 5 and 12 have no motors. They are trailers, with the auxiliary power for the lights and air conditioning.'], glow: ['trailerCars', 'aux'], at: [CAR_X[0] - 1, 0.6, -2, 26, [0.4, 0.55, -0.73]]},
 ];
 
 export default {
@@ -64,11 +64,11 @@ export default {
   sun: {pos: [4, 14, 6], ext: 14},
   ao: 0.18,
   LIGHTS: [
-    {id: 'head', name: ['車頭燈', 'Headlights'], say: ['車頭燈在鼻子下面兩邊，晚上和山洞裡會打開。', 'The headlights sit low on each side of the nose. They switch on at night and in tunnels.'], color: '#fff3d6', view: [1, 0.3, 0.4],
+    {id: 'head', name: ['車頭燈', 'Headlights'], say: ['車頭燈在鼻子下面兩邊，晚上和山洞裡會打開。', 'The headlights sit low on each side of the nose. They switch on at night and in tunnels.'], color: '#fff3d6', view: [1, 0.3, -0.4],
       icon: '<circle cx="7.5" cy="12" r="4"/><path d="M13 9l8-3M13 12h8.5M13 15l8 3"/>'},
-    {id: 'tail', name: ['尾燈', 'Tail lights'], say: ['最後一節的車頭燈變成紅色的尾燈，告訴後面：火車的屁股在這裡。', 'At the last car the lights glow red, saying: this is the end of the train.'], color: '#ff4a3a', view: [-1, 0.3, 0.4],
+    {id: 'tail', name: ['尾燈', 'Tail lights'], say: ['最後一節的車頭燈變成紅色的尾燈，告訴後面：火車的屁股在這裡。', 'At the last car the lights glow red, saying: this is the end of the train.'], color: '#ff4a3a', view: [-1, 0.3, -0.4],
       icon: '<circle cx="12" cy="12" r="4.5"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2"/>'},
-    {id: 'cabin', name: ['車廂燈', 'Cabin lights'], say: ['車廂裡的燈打開，從外面看，一整排窗戶都亮起來了。', 'With the cabin lights on, the whole row of windows glows from outside.'], color: '#ffd08a', view: [0.3, 0.25, 1],
+    {id: 'cabin', name: ['車廂燈', 'Cabin lights'], say: ['車廂裡的燈打開，從外面看，一整排窗戶都亮起來了。', 'With the cabin lights on, the whole row of windows glows from outside.'], color: '#ffd08a', view: [0.3, 0.25, -1],
       icon: '<path d="M4 6h16"/><path d="M8 6v2.5h8V6"/><path d="M7 12l-2 6M17 12l2 6M12 11.5V18" opacity=".55"/>'},
   ],
   pools: [
@@ -79,9 +79,9 @@ export default {
   groundFade: ['0.6, 0.6', '8.0, 22.0'],
   // 動力那一層（和它的零件）框一整組動力單元（1–4 車，約 100 公尺）
   cam: {
-    // 手機直立的窄螢幕放不下 100 公尺：只框 2 節
+    // 預設從左前方看（和 Model Y、展廳縮圖同一個方向）；手機直立的窄螢幕放不下 100 公尺：只框 2 節
     frameLen: {default: 6, get 4() { return innerWidth < innerHeight ? 9 : 18; }, get motorCars() { return innerWidth < innerHeight ? 9 : 18; }, get trailerCars() { return innerWidth < innerHeight ? 9 : 18; },
-      pantograph: 18, hvCable: 18, transformer: 18, converter: 18, motors: 18, aux: 18}, min: 1.2, max: 70, home: [0.62, 0.26, 0.75], explode: [0.5, 0.9, 0.8], r: [1.0, 1.6], rh: [2.6, 1.0], target: (ex) => [-1.9, 0.42 + 1.0 * ex, 0]},
+      pantograph: 18, hvCable: 18, transformer: 18, converter: 18, motors: 18, aux: 18}, min: 1.2, max: 70, home: [0.62, 0.26, -0.75], explode: [0.5, 0.9, -0.8], r: [1.0, 1.6], rh: [2.6, 1.0], target: (ex) => [-1.9, 0.42 + 1.0 * ex, 0]},
   actions: [
     {id: 'run', icon: ICONS.run, label: ['出發', 'Go']},
     {id: 'seats', icon: ICONS.seats, label: ['轉椅子', 'Turn seats']},
