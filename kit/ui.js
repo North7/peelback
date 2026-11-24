@@ -12,6 +12,7 @@ export const ICON2 = {
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>',
   sound: '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
   view: '<svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v3.8h3.8"/></svg>',
+  play: '<svg viewBox="0 0 24 24"><path d="M8.5 5.8v12.4L18.5 12z"/></svg>',
 };
 
 // ---------- 日夜（白天是預設）----------
@@ -231,18 +232,20 @@ export function bindSys(root, {sig, onLang} = {}) {
   const tools = $('#tools');
   const themeBtn = $('#themeBtn');
   const aim = dotIcon(themeBtn);
+  // 看畫面「現在」是白天還是晚上（介紹片自己天黑時，存起來的設定還是白天；按下去要換成白天，不是再換成晚上）
+  const cur = () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
   const paintTheme = () => {
-    const dark = getTheme() === 'dark';
+    const dark = cur() === 'dark';
     themeBtn.setAttribute('aria-label', dark ? L('換成白天', 'Light mode') : L('換成晚上', 'Dark mode'));
     $('#menuBtn')?.setAttribute('aria-label', L('設定', 'Settings')); // 換語言時一起換
   };
-  aim(getTheme(), false);
+  aim(cur(), false);
   paintTheme();
   // 白天／晚上可能從別的地方換（燈光面板、開燈自動變晚上）：日夜鍵的圖示和說明跟著變
   {
-    let last = getTheme();
+    let last = cur();
     const mo = new MutationObserver(() => {
-      const t = getTheme();
+      const t = cur();
       if (t === last) return;
       last = t;
       aim(t, true);
@@ -252,7 +255,7 @@ export function bindSys(root, {sig, onLang} = {}) {
     sig?.signal?.addEventListener('abort', () => mo.disconnect());
   }
   themeBtn.onclick = () => {
-    const to = getTheme() === 'dark' ? 'light' : 'dark';
+    const to = cur() === 'dark' ? 'light' : 'dark';
     aim(to, true);
     sweep(themeBtn, () => setTheme(to));
     paintTheme();

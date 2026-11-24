@@ -789,3 +789,126 @@ html[data-lang="en"] .cta { font-family: var(--f-sans); }
   .th .no { left: 7px; top: 5px; font-size: 8px; }
 }
 .load-err { font: 600 15px/1.5 var(--f-zh); color: var(--muted); padding: 0 24px; text-align: center; }
+
+/* =====================================================================
+   介紹片（#intro）：全畫面 3D 自動播放，左下一段字幕、右邊細線進度、右上跳過／播放／系統按鈕。
+   疊在 3D 上的字底下墊一層半透明、邊緣淡掉的底（不畫框、不用 backdrop 模糊：3D 一直在動，每格重算會卡）。
+   ===================================================================== */
+.intro { position: absolute; inset: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; --igut: max(22px, min(56px, 4vw), env(safe-area-inset-left, 0px)); }
+.intro .igl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.itop { position: absolute; top: 0; left: 0; right: 0; z-index: 20; padding-left: var(--igut); padding-right: max(var(--igut), env(safe-area-inset-right, 0px)); }
+.iright { display: flex; align-items: center; gap: 10px; }
+.hright { display: flex; align-items: center; gap: 10px; }
+.ipill { height: 44px; padding: 0 18px; border-radius: 22px; font: 700 14px/1 var(--f-zh); color: var(--ink); background: var(--glass); box-shadow: inset 0 1px 0 var(--glass-edge), var(--ring), var(--shadow); transition: transform 0.5s var(--spring); }
+html[data-lang="en"] .ipill { font-family: var(--f-sans); }
+.ipill:active { transform: scale(0.9); }
+#iPlay svg { stroke-width: 2.2; }
+
+.icopy, .ichap { position: absolute; left: var(--igut); bottom: calc(max(18px, env(safe-area-inset-bottom)) + 26px); z-index: 10; max-width: min(540px, 44vw); isolation: isolate;
+  transition: opacity 0.6s var(--out), transform 0.8s var(--out), filter 0.6s; }
+.icopy::before, .ichap::before { content: ""; position: absolute; inset: -30px -40px -26px -40px; z-index: -1; border-radius: 28px; background: color-mix(in srgb, var(--bg) 70%, transparent);
+  -webkit-mask-image: radial-gradient(farthest-side, #000 62%, transparent); mask-image: radial-gradient(farthest-side, #000 62%, transparent); pointer-events: none; }
+.icopy.away, .ichap.off { opacity: 0; transform: translateY(-14px); filter: blur(6px); pointer-events: none; }
+.ikicker { margin: 0 0 14px; display: flex; align-items: center; gap: 10px; font: 500 11px/1 var(--f-mono); letter-spacing: 0.16em; color: var(--muted); }
+.ikicker::before { content: ""; width: 18px; height: 1.5px; background: var(--accent); }
+.icopy h1 { margin: 0; font: 800 clamp(34px, 5.2vw, 68px)/1.1 var(--f-zh); letter-spacing: -0.01em; text-wrap: balance; }
+html[data-lang="en"] .icopy h1 { font-family: var(--f-sans); letter-spacing: -0.03em; }
+.isub { margin: 16px 0 0; max-width: 30em; font: 500 clamp(14px, 1.25vw, 16px)/1.7 var(--f-zh); color: var(--muted); }
+.icta { margin-top: 20px; height: 50px; padding: 0 24px 0 18px; display: inline-flex; align-items: center; gap: 10px; border-radius: 25px; background: var(--accent); color: var(--accent-ink);
+  font: 800 15px/1 var(--f-zh); box-shadow: 0 14px 30px -14px var(--accent); transition: transform 0.5s var(--spring); }
+html[data-lang="en"] .icta { font-family: var(--f-sans); }
+.icta svg { width: 18px; height: 18px; stroke-width: 2.2; transition: transform 0.4s var(--spring); }
+.icta:hover svg { transform: translateX(4px); }
+.icta:active { transform: scale(0.92); }
+.ichap::before { opacity: 0; transition: opacity 0.6s; }
+.ichap.in::before { opacity: 1; }
+.ichap em { display: block; margin-bottom: 12px; font: 500 11px/1 var(--f-mono); font-style: normal; letter-spacing: 0.16em; color: var(--accent); opacity: 0; transition: opacity 0.5s; }
+.ichap h2 { margin: 0; padding-bottom: 0.06em; overflow: hidden; font: 800 clamp(28px, 3.4vw, 46px)/1.15 var(--f-zh); }
+html[data-lang="en"] .ichap h2 { font-family: var(--f-sans); letter-spacing: -0.02em; }
+.ichap p { margin: 12px 0 0; overflow: hidden; font: 500 clamp(14px, 1.2vw, 16px)/1.7 var(--f-zh); color: var(--muted); }
+.ichap h2 span, .ichap p span { display: inline-block; transform: translateY(110%); opacity: 0; }
+.ichap.in em { opacity: 1; }
+.ichap.in h2 span { animation: iunmask 0.8s var(--out) forwards; }
+.ichap.in p span { animation: iunmask 0.8s var(--out) 0.1s forwards; }
+@keyframes iunmask { to { transform: none; opacity: 1; } }
+.ichap .icta { display: none; }
+.ichap.withcta .icta { display: inline-flex; animation: irise 0.8s var(--out) 0.3s both; }
+@keyframes irise { from { opacity: 0; transform: translateY(10px); } }
+
+/* 焦點零件的名牌：細線拉出去 */
+.icard { position: absolute; left: 0; top: 0; z-index: 8; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+.icard.on { opacity: 1; }
+.icard .dot { position: absolute; left: -6px; top: -6px; width: 12px; height: 12px; border-radius: 50%; border: 1.6px solid var(--accent); }
+.icard .dot::after { content: ""; position: absolute; inset: 2.5px; border-radius: 50%; background: var(--accent); }
+.icard .lead { position: absolute; left: 4px; top: -4px; width: 56px; height: 1.5px; background: var(--accent); transform-origin: 0 50%; transform: rotate(-38deg) scaleX(0); transition: transform 0.6s var(--out) 0.1s; }
+.icard.on .lead { transform: rotate(-38deg) scaleX(1); }
+.icard .in { position: absolute; left: 48px; top: -58px; display: grid; grid-template-columns: auto 1fr; column-gap: 10px; row-gap: 3px; padding: 10px 14px 11px 12px; border-radius: 14px; white-space: nowrap;
+  background: var(--glass); box-shadow: inset 0 1px 0 var(--glass-edge), var(--ring), var(--shadow); opacity: 0; transform: translateY(6px) scale(0.96); transform-origin: 0 100%; transition: opacity 0.4s 0.3s, transform 0.6s var(--spring) 0.3s; }
+.icard.on .in { opacity: 1; transform: none; }
+.icard em { grid-row: span 2; padding-top: 3px; font: 500 11px/1 var(--f-mono); font-style: normal; color: var(--accent); }
+.icard b { font: 800 16px/1.2 var(--f-zh); }
+.icard span { font: 500 12.5px/1.3 var(--f-zh); color: var(--muted); }
+.icard.left .in { left: auto; right: 48px; transform-origin: 100% 100%; }
+.icard.left .lead { left: auto; right: 4px; transform-origin: 100% 50%; transform: rotate(38deg) scaleX(0); }
+.icard.left.on .lead { transform: rotate(38deg) scaleX(1); }
+
+/* 右下角的真實長度 */
+.imeter { position: absolute; right: var(--igut); bottom: calc(max(18px, env(safe-area-inset-bottom)) + 26px); z-index: 10; display: flex; flex-direction: column; align-items: flex-end; text-align: right; pointer-events: none; transition: opacity 0.6s var(--out), filter 0.6s; }
+.imeter.off { opacity: 0; filter: blur(6px); }
+.imeter .k { font: 500 11px/1 var(--f-mono); letter-spacing: 0.16em; color: var(--muted); }
+.imeter .big { display: flex; align-items: baseline; gap: 6px; margin: 4px 0; }
+.imeter .big b { font: 800 clamp(56px, 8vw, 108px)/0.95 var(--f-sans); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.imeter .big small { font: 500 18px/1 var(--f-mono); color: var(--accent); }
+.imeter .who { font: 800 17px/1.3 var(--f-zh); }
+.imeter .kids { margin-top: 2px; font: 500 13px/1.4 var(--f-zh); color: var(--muted); }
+
+/* 飛機、高鐵的名字 */
+.itags { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
+.itag { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; opacity: 0; transition: opacity 0.5s; white-space: nowrap; }
+.itag.on { opacity: 1; }
+.itag em { font: 500 10px/1.3 var(--f-mono); font-style: normal; letter-spacing: 0.08em; color: var(--muted); }
+.itag b { font: 800 13px/1.3 var(--f-zh); }
+
+/* 右邊的鏡頭進度：細線，正在播的那段用主色長出來 */
+.iprog { position: absolute; right: var(--igut); top: 50%; transform: translateY(-50%); z-index: 10; display: flex; flex-direction: column; gap: 4px; }
+.iprog button { width: 22px; height: 30px; display: grid; place-items: center; }
+.iprog i { position: relative; display: block; width: 2px; height: 24px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.iprog i::after { content: ""; position: absolute; inset: 0; background: var(--accent); transform-origin: 50% 0; transform: scaleY(0); }
+.iprog button.done i::after { background: var(--muted); transform: none; }
+.iprog button.on i::after { transform: scaleY(var(--p, 0)); }
+
+/* 往下滑的提示（暫停時才出現）：細線圓圈＋會跳的箭頭，下面一條有主色光流下去的線 */
+.ihint { position: absolute; left: 50%; bottom: calc(max(18px, env(safe-area-inset-bottom)) + 30px); transform: translateX(-50%); z-index: 9; display: flex; flex-direction: column; align-items: center; pointer-events: none; transition: opacity 0.5s; }
+.ihint .ring { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; border: 1.8px solid var(--ink); background: color-mix(in srgb, var(--bg) 55%, transparent); }
+.ihint svg { width: 14px; height: 14px; stroke-width: 2; animation: ihop 1.6s var(--out) infinite; }
+.ihint .flow { width: 1.8px; height: 26px; margin-top: 6px; background: linear-gradient(var(--accent), var(--accent)) no-repeat 0 -26px / 100% 12px, var(--line); animation: iflow 1.6s linear infinite; }
+@keyframes ihop { 0%, 100% { transform: translateY(-2px); } 30% { transform: translateY(3px); } }
+@keyframes iflow { to { background-position: 0 30px, 0 0; } }
+.ihint.gone { opacity: 0; }
+
+@media (max-width: 700px) {
+  .iright { gap: 6px; }
+  .ipill { height: 38px; padding: 0 14px; font-size: 13px; }
+  .icopy, .ichap { right: var(--igut); max-width: none; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 18px); }
+  .icopy h1 { font-size: clamp(30px, 9vw, 40px); }
+  .isub { margin-top: 12px; font-size: 14px; }
+  .icta { margin-top: 16px; height: 44px; padding: 0 18px 0 14px; font-size: 14px; }
+  .imeter { right: auto; left: var(--igut); bottom: auto; top: calc(max(16px, env(safe-area-inset-top)) + 84px); align-items: flex-start; text-align: left; }
+  .imeter .big b { font-size: 52px; }
+  .imeter .who { font-size: 15px; }
+  .iprog { top: calc(max(16px, env(safe-area-inset-top)) + 62px); transform: none; flex-direction: row; gap: 3px; }
+  .iprog button { width: 26px; height: 18px; }
+  .iprog i { width: 22px; height: 2px; }
+  .iprog i::after { transform-origin: 0 50%; transform: scaleX(0); }
+  .iprog button.on i::after { transform: scaleX(var(--p, 0)); }
+  .ihint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ichap h2 span, .ichap p span { transform: none; opacity: 1; animation: none; }
+  .ihint svg, .ihint .flow { animation: none; }
+}
+/* 注音模式：字上面多一排注音，手機上標題縮一號，不然最後一個字會掉到下一行 */
+@media (max-width: 700px) {
+  html[data-lang="zy"] .icopy h1 { font-size: clamp(26px, 7.4vw, 36px); }
+  html[data-lang="zy"] .ichap h2 { font-size: clamp(22px, 6vw, 32px); }
+}

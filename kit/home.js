@@ -31,7 +31,10 @@ export function startHome({cats, items, onOpen, lastId}) {
 <div class="home">
   <header class="htop">
     <a class="brand" href="#" aria-label="Peelback">${LOGO('')}</a>
-    ${sysMenu({sound: false, view: false})}
+    <div class="hright">
+      <a class="round" id="hIntro" href="#intro">${ICON2.play}</a>
+      ${sysMenu({sound: false, view: false})}
+    </div>
   </header>
   <nav class="htabs" id="htabs" role="tablist"><span class="seg-ind"></span>
     ${cats.map((c) => `<button role="tab" data-c="${c.id}" class="${c.soon ? 'soon' : ''}"><span></span></button>`).join('')}
@@ -53,6 +56,8 @@ export function startHome({cats, items, onOpen, lastId}) {
       const c = cats.find((x) => x.id === b.dataset.c);
       b.querySelector('span').innerHTML = HP(c.id === 'all' ? STR.all : c.name);
     }
+    $('#hIntro').setAttribute('aria-label', L('看介紹', 'Watch the intro'));
+    $('#hIntro').title = L('看介紹', 'Watch the intro');
     $('#hPrev').setAttribute('aria-label', L('上一台', 'Previous'));
     $('#hNext').setAttribute('aria-label', L('下一台', 'Next'));
     show(0, true);

@@ -1,7 +1,9 @@
-// 剝剝看（Peelback）：入口是展廳（#），走進一台車是 #bus、#plane、#car、#train。
+// 剝剝看（Peelback）：入口是展廳（#），走進一台車是 #bus、#plane、#car、#train，介紹片是 #intro。
+// 第一次來（還沒看過介紹）先到 #intro，看完或按「進展廳」「跳過」回展廳；展廳左上角可以再看一次。
 // 要加新的一台：在 CATALOG 加一筆、在 VEHICLES 放它的定義；新的分類加在 CATS。
 import {startApp} from './app.js';
 import {startHome} from './home.js';
+import {startIntro} from './intro.js';
 import {applyLang, getLang} from './i18n.js';
 import {applyThemeAttr} from './ui.js';
 import bus, {BUS_ICON} from '../bus/vehicle.js';
@@ -35,13 +37,28 @@ const SHOWN_CATS = CATS.filter((c) => c.id === 'all' || CATALOG.some((x) => x.ca
 
 applyLang();
 applyThemeAttr();
+const INTRO_KEY = 'peelback.intro';
+const seenIntro = () => {
+  try {
+    return localStorage.getItem(INTRO_KEY) === '1';
+  } catch {
+    return true;
+  }
+};
+const markIntro = () => {
+  try {
+    localStorage.setItem(INTRO_KEY, '1');
+  } catch {}
+};
 let current = null;
 let currentId = null;
 let lastId = null;
 let routeN = 0;
 async function route() {
   const id = location.hash.slice(1);
-  const want = VEHICLES[id] ? id : 'home';
+  // 第一次打開網站（直接開首頁、還沒看過介紹）：先看介紹
+  if (!id && !current && !seenIntro()) return void location.replace('#intro');
+  const want = id === 'intro' ? 'intro' : VEHICLES[id] ? id : 'home';
   if (want === currentId) return;
   const n = ++routeN;
   current?.dispose();
@@ -49,6 +66,17 @@ async function route() {
   currentId = want;
   if (want === 'home') {
     current = startHome({cats: SHOWN_CATS, items: CATALOG, lastId, onOpen: (v) => (location.hash = v)});
+  } else if (want === 'intro') {
+    // 介紹片：四台都要下載、建好才開始播（介紹自己會先轉載入的輪子）
+    markIntro();
+    try {
+      const r = await startIntro({vehicles: VEHICLES, catalog: CATALOG, onDone: () => (location.hash = ''), alive: () => n === routeN});
+      if (n !== routeN) return r.dispose();
+      current = r;
+    } catch (e) {
+      console.error(e);
+      if (n === routeN) document.getElementById('app').innerHTML = `<div class="loading"><p class="load-err">${getLang() === 'en' ? 'Couldn’t load. Check the connection and reload.' : '載入失敗，請檢查網路後重新整理。'}</p></div>`;
+    }
   } else {
     lastId = want;
     const item = CATALOG.find((x) => x.id === want);

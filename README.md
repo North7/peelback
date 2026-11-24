@@ -4,11 +4,14 @@
 
 線上：https://peelback.aronlab.dev/
 
-入口是「展廳」，一次看一台；走進一台車的網址是 `#bus`、`#plane`、`#car`：
+入口是「展廳」，一次看一台；走進一台車的網址是 `#bus`、`#plane`、`#car`、`#train`。
+第一次來的人會先看介紹片 `#intro`（`kit/intro.js`：粒子聚成 Model Y、一層一層拆開、四台照真實比例、天黑亮燈，自動播放），
+看完或按「進展廳」「跳過」回展廳；展廳右上角的播放鍵可以再看一次。五個首屏概念的原型在 `design/landing/`。
 
 - No.01 公車：台北客運日野 HS8JRVL 低地板公車（柴油／電動切換）→ `bus/`
 - No.02 飛機：星宇航空 A350-1000「空山金」→ `plane/`
 - No.03 汽車：特斯拉 Model Y → `car/`
+- No.04 火車：台灣高鐵 700T → `train/`
 
 加新的一台：照 `plane/vehicle.js` 寫一份，在 `kit/entry.js` 的 `VEHICLES` 和 `CATALOG` 各加一筆（分類還沒有車時不會顯示）。
 
@@ -33,7 +36,7 @@
 原始下載檔不在這個倉庫（`ref/` 只留在本機）；`car/sk/` 是拆成零件、壓縮過的版本（`tools/sk_export.py`、`tools/sk_parts.py`）。
 
 共用的介面在 `kit/`：`app.js`（場景、鏡頭、一層一層拆、名牌、點零件、透視、燈光）、`i18n.js`（注音／中文／英文）、
-`sound.js`、`style.css`、`entry.js`（換車）。每台車一個資料夾：`model.js`（幾何，真實尺寸）、`data.js`（零件說明，中英文）、
+`sound.js`、`style.css`、`entry.js`（換車）、`home.js`（展廳）、`intro.js`（介紹片）。每台車一個資料夾：`model.js`（幾何，真實尺寸）、`data.js`（零件說明，中英文）、
 `vehicle.js`（層、按鈕、每格的動畫）。加新的一台：照 `plane/vehicle.js` 寫一份，在 `kit/entry.js` 加進清單。
 
 同一個零件在好幾個地方（例如飛機三個廚房），每個地方要各自是一個 piece，名牌才會指到真的東西，不會指到中間空的地方。
