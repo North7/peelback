@@ -28,9 +28,10 @@ const SHOTS = [
     chap: ['每個零件都有名字', '點一下零件，名牌就跳出來，還會念給你聽。中文、英文、注音都有。']},
   {dur: 6, fit: ['car', 'bus'], az: 0.68, el: 0.26,
     chap: ['照真的大小做', '旁邊站一個 115 公分的小朋友。公車 12.2 公尺，差不多 11 個小朋友躺成一排。']},
-  {dur: 6, fit: ['car', 'bus', 'plane', 'train'], az: 0.62, el: 0.5,
+  {dur: 6, at: [-14, 2.6, 9], d: 44, atP: [-7, 2.4, 5], dP: 64, az: 1.02, el: 0.17, // 不框整列高鐵：前景車子和小朋友，高鐵前幾節清楚、後面交給景深糊掉
+   
     chap: ['四台車，四種大小', '最長的高鐵 304 公尺，12 節車廂一節一節都拆得開。']},
-  {dur: Infinity, at: [-17, 3.2, 12], d: 52, az: 1.16, el: 0.13, night: true,
+  {dur: Infinity, at: [-17, 3.2, 12], d: 52, atP: [-8, 2.8, 6], dP: 68, az: 1.16, el: 0.13, night: true,
     chap: ['天黑了，燈亮起來', '車頭燈、尾燈、高鐵整排的窗、飛機翅膀上一閃一閃的燈，每一組都可以自己打開。'], cta: true},
 ];
 const LANES = {car: 0, bus: 4.2, train: 8.8, plane: 46};
@@ -353,7 +354,7 @@ export default async function run(stage, ctx) {
   }
   mark('warm');
   const dayBg = new THREE.Color();
-  let nightDriven = false; // 第 7 個鏡頭把頁面換成深色（離開時換回原本的）
+  let nightDriven = false, darkPending = false; // 第 7 個鏡頭把頁面換成深色（離開時換回原本的）
   let themeBefore = null;
   const paint = () => {
     if (!nightDriven) st.paint();
@@ -379,7 +380,7 @@ export default async function run(stage, ctx) {
     <div class="chap off" id="chap"><em id="chNo"></em><h2 id="chT"></h2><p id="chL"></p><a class="cta" id="chCta" href="https://peelback.aronlab.dev/" target="_blank" rel="noopener">進展廳 ${ARROW}</a></div>
     <div class="fcard" id="fcard"><i class="dot"></i><i class="lead"></i><div class="in"><em id="fcNo">01</em><b id="fcT"></b><span id="fcL"></span></div></div>
     <div class="meter off" id="meter"><span class="k">真實長度</span><div class="big"><b id="mNum">4.79</b><small>m</small></div><span class="who" id="mWho"></span><span class="kids" id="mKids"></span></div>
-    <div class="tags" id="ftags"><div class="tag vtag" data-k="near"><em>No.01・03</em><b>公車・Model Y・小朋友</b></div><div class="tag vtag" data-k="plane"><em>No.02</em><b>A350-1000</b></div><div class="tag vtag" data-k="train"><em>No.04</em><b>700T</b></div></div>
+    <div class="tags" id="ftags"><div class="tag vtag" data-k="plane"><em>No.02</em><b>A350-1000</b></div><div class="tag vtag" data-k="train"><em>No.04</em><b>700T</b></div></div>
     <div class="prog" id="prog">${SHOTS.map((s, i) => `<button data-i="${i}" aria-label="第 ${i + 1} 個鏡頭"><i></i></button>`).join('')}</div>
     <button class="ib playbtn" id="play" aria-label="暫停"></button>
     ${HINT}`;
@@ -417,7 +418,8 @@ export default async function run(stage, ctx) {
   const pose = (i) => {
     const s = SHOTS[i];
     if (s.fit) return fit(s.fit, s.az, s.el);
-    if (s.at) return {c: new THREE.Vector3(...s.at), d: s.d * Math.max(1, 1.3 / camera.aspect), az: s.az, el: s.el};
+    // 手機直的畫面另外一個構圖：目標往車頭那一團靠，距離不要照寬度一路拉遠
+    if (s.at) return portrait() ? {c: new THREE.Vector3(...s.atP), d: s.dP, az: s.az, el: s.el} : {c: new THREE.Vector3(...s.at), d: s.d * Math.max(1, 1.3 / camera.aspect), az: s.az, el: s.el};
     const dir = new THREE.Vector3(...s.dir).normalize();
     const base = 18 * Math.max(1, (portrait() ? 0.95 : 1.4) / camera.aspect);
     return {c: centerOf(s.focus), d: base * s.dist, az: Math.atan2(dir.x, -dir.z), el: Math.asin(dir.y)};
@@ -441,10 +443,17 @@ export default async function run(stage, ctx) {
     if (T >= K[n - 1][0]) return K[n - 1][1].slice();
     let i = 0;
     while (K[i + 1][0] < T) i++;
-    const tan = (j) => {
-      const a = K[Math.max(0, j - 1)], b = K[Math.min(n - 1, j + 1)];
-      return a[1].map((x, k) => (b[1][k] - x) / (b[0] - a[0]));
-    };
+    // 單調的切線（Fritsch–Butland）：兩個位置之間不會衝過頭再拉回來（鏡頭不晃），速度仍然連續
+    const slope = (j, k) => (K[j + 1][1][k] - K[j][1][k]) / (K[j + 1][0] - K[j][0]);
+    const tan = (j) =>
+      K[j][1].map((_, k) => {
+        if (j === 0 || j === n - 1) return 0;
+        const a = slope(j - 1, k), b = slope(j, k);
+        if (a * b <= 0) return 0;
+        const h0 = K[j][0] - K[j - 1][0], h1 = K[j + 1][0] - K[j][0];
+        const w1 = 2 * h1 + h0, w2 = h1 + 2 * h0;
+        return (w1 + w2) / (w1 / a + w2 / b);
+      });
     const [t0, p0] = K[i], [t1, p1] = K[i + 1];
     const m0 = tan(i), m1 = tan(i + 1);
     const h = t1 - t0, u = (T - t0) / h, u2 = u * u, u3 = u2 * u;
@@ -467,9 +476,10 @@ export default async function run(stage, ctx) {
       nightDriven = true;
       dayBg.copy(scene.background);
       themeBefore = de.dataset.theme;
-      if (themeBefore !== 'dark') de.dataset.theme = 'dark';
+      darkPending = themeBefore !== 'dark'; // 天色過半才把頁面的字換成夜晚的顏色（不然背景還亮著、字底先變黑）
     } else if (!on && nightDriven) {
       nightDriven = false;
+      darkPending = false;
       if (themeBefore && themeBefore !== 'dark') de.dataset.theme = themeBefore;
       themeBefore = null;
     }
@@ -497,7 +507,7 @@ export default async function run(stage, ctx) {
         chap.classList.toggle('withcta', !!s.cta);
         void chap.offsetWidth;
         chap.classList.add('in');
-      }, RM.matches ? 0 : 700);
+      }, RM.matches ? 0 : s.night ? 1500 : 700);
     meter.classList.toggle('off', i < 4 || !!s.night);
     if (i >= 4) {
       const id = i === 4 ? 'bus' : 'train';
@@ -556,6 +566,7 @@ export default async function run(stage, ctx) {
   const stage0 = {copyShown: false};
   // 測試用：網址加 ?speed=4 快轉（預覽視窗一秒只有幾格時才看得完一遍）
   const SPEED = +new URLSearchParams(location.search).get('speed') || 1;
+  const PERF = new URLSearchParams(location.search).has('perf'); // 測試用：記下每一格攝影機的位置
   let t = 0;
   const stop = loop((dt0, _t, raw) => {
     const dt = dt0 * SPEED;
@@ -616,6 +627,7 @@ export default async function run(stage, ctx) {
     }
     // 天黑：背景、太陽變月光、環境光變暗；燈一台一台亮起來（晚上才有光暈）
     const n = smooth(nightS.step(dt));
+    if (darkPending && n > 0.5) (darkPending = false), (document.documentElement.dataset.theme = 'dark');
     if (n > 0.001 || nightDriven) {
       scene.background.copy(dayBg).lerp(NIGHT.bg, n);
       sun.intensity = 2.2 + (0.32 - 2.2) * n;
@@ -651,18 +663,20 @@ export default async function run(stage, ctx) {
     camV = V;
     orbit.step(dt);
     const dist = Math.exp(V[3]);
-    const az = V[4] + orbit.yaw.x + (RM.matches ? 0 : Math.sin(t * 0.09) * 0.03);
+    const az = V[4] + orbit.yaw.x + (RM.matches ? 0 : Math.sin(t * 0.07) * 0.012);
     const el = V[5] + orbit.pitch.x * 0.5;
     tgt.set(V[0], V[1], V[2]);
     camera.position.set(tgt.x + Math.sin(az) * Math.cos(el) * dist, tgt.y + Math.sin(el) * dist, tgt.z - Math.cos(az) * Math.cos(el) * dist);
-    if (!RM.matches) camera.position.add(tmp.set(Math.sin(t * 0.5), Math.sin(t * 0.37), Math.cos(t * 0.43)).multiplyScalar(dist * 0.004));
+    if (!RM.matches) camera.position.add(tmp.set(Math.sin(t * 0.31), Math.sin(t * 0.23), Math.cos(t * 0.27)).multiplyScalar(dist * 0.0012)); // 很輕的手持感
     camera.lookAt(tgt);
+    if (PERF) (window.__cam ||= []).push([filmT, camera.position.x, camera.position.y, camera.position.z, tgt.x, tgt.y, tgt.z]);
     camera.near = Math.max(0.05, dist * 0.02);
     camera.far = dist * 8;
     camera.updateProjectionMatrix();
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    const wide = si >= 4;
-    if (portrait()) camera.setViewOffset(w, h, 0, wide ? -h * 0.01 : h * 0.12, w, h);
+    const wide = si === 4;
+    if (portrait()) camera.setViewOffset(w, h, 0, wide ? -h * 0.01 : si >= 5 ? h * 0.02 : h * 0.12, w, h);
+    else if (si >= 5) camera.setViewOffset(w, h, 0, h * 0.1, w, h);
     else camera.setViewOffset(w, h, wide ? 0 : -w * 0.14, wide ? h * 0.17 : si >= 2 ? h * 0.12 : h * 0.04, w, h);
     const E = Math.max(6, dist * 0.45);
     Object.assign(sun.shadow.camera, {left: -E, right: E, top: E, bottom: -E, near: 0.5, far: E * 8});
@@ -680,16 +694,17 @@ export default async function run(stage, ctx) {
     PU.uAperture.value = 0.3 + 1.1 * PU.uScatter.value; // 點還散著時整團失焦，聚好就對焦清楚
     // 離焦點 ±70% 的距離才糊到上限
     bokeh.uniforms.aperture.value = (0.0093 / dist) * (wide ? 0.6 : 1);
+    bokeh.uniforms.maxblur.value = si >= 5 ? 0.014 : 0.0065; // 最後兩個鏡頭：高鐵後半段明顯糊掉
     // 開場的點沒有寫進深度，後製的景深會把它們當成背景一起糊掉：點自己算失焦，開場先關掉後製的
-    bokeh.enabled = !(si === 0 && points.visible) && !wide; // 遠景本來就幾乎不糊，景深後製很吃效能，關掉
+    bokeh.enabled = !(si === 0 && points.visible) && !wide; // 第 5 個鏡頭是遠景、本來就幾乎不糊，景深後製很吃效能，關掉；最後兩個鏡頭靠它把高鐵後半段糊掉
     composer.render(dt);
     // 最後兩個鏡頭：每一台的名字
     for (const el2 of stage.querySelectorAll('#ftags .tag')) {
       const key = el2.dataset.k;
-      const on = si === 5 && (key === 'near' || (others[key] && others[key].grow.x > 0.9));
+      const on = si === 5 && !portrait() && (key === 'near' || (others[key] && others[key].grow.x > 0.9));
       el2.classList.toggle('on', on);
       if (!on) continue;
-      const p = key === 'near' ? new THREE.Vector3(-6, 3.6, 2) : key === 'plane' ? new THREE.Vector3(-INFO.plane.len * 0.45, 19, LANES.plane) : new THREE.Vector3(-INFO.train.len * 0.62, 4.5, LANES.train);
+      const p = key === 'near' ? new THREE.Vector3(-6, 3.6, 2) : key === 'plane' ? new THREE.Vector3(-INFO.plane.len * 0.45, 19, LANES.plane) : new THREE.Vector3(-32, 4.8, LANES.train);
       const s = toScreen(p, camera, canvas);
       el2.style.transform = `translate(${s.x}px, ${s.y}px) translate(-50%, -100%)`;
     }

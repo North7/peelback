@@ -290,5 +290,7 @@ button { font: inherit; color: inherit; }
 }
 /* 疊在 3D 上的字：底下一層半透明的底，邊緣淡掉（不畫框、不墊實色；不用 backdrop 模糊：疊在一直在動的 3D 上每格都要重算，會卡） */
 .stage[data-k="film"] .copy::before, .chap::before { content: ""; position: absolute; inset: -28px -36px -24px -36px; z-index: -1; border-radius: 28px; background: color-mix(in srgb, var(--bg) 70%, transparent); -webkit-mask-image: radial-gradient(farthest-side, #000 62%, transparent); mask-image: radial-gradient(farthest-side, #000 62%, transparent); pointer-events: none; }
+.chap::before { opacity: 0; transition: opacity 0.6s; }
+.chap.in::before { opacity: 1; } /* 字的底跟著字一起出現（換段、天黑換色時不會先浮出一團） */
 .stage[data-k="film"] .copy { isolation: isolate; }
 .chap { isolation: isolate; }
