@@ -270,3 +270,21 @@ button { font: inherit; color: inherit; }
   .chap h2 span, .chap p span { transform: none; opacity: 1; animation: none; }
 }
 .chap .cta { text-shadow: none; }
+
+/* 電影版：鏡頭進度（細線，正在播的那段用主色長出來）、播放／暫停 */
+.prog { position: absolute; right: var(--gut); top: 50%; transform: translateY(-50%); z-index: 10; display: flex; flex-direction: column; gap: 4px; }
+.prog button { width: 22px; height: 30px; border: 0; padding: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.prog i { position: relative; display: block; width: 2px; height: 24px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.prog i::after { content: ""; position: absolute; inset: 0; background: var(--accent); transform-origin: 50% 0; transform: scaleY(0); }
+.prog button.done i::after { background: var(--muted); transform: none; }
+.prog button.on i::after { transform: scaleY(var(--p, 0)); }
+.playbtn { position: absolute; z-index: 21; top: max(16px, env(safe-area-inset-top)); right: calc(var(--gut) + 50px); }
+.playbtn svg { stroke-width: 2; }
+@media (max-width: 700px) {
+  .prog { top: calc(max(16px, env(safe-area-inset-top)) + 50px); transform: none; flex-direction: row; gap: 3px; }
+  .prog button { width: 26px; height: 18px; }
+  .prog i { width: 22px; height: 2px; }
+  .prog i::after { transform-origin: 0 50%; transform: scaleX(0); }
+  .prog button.on i::after { transform: scaleX(var(--p, 0)); }
+  .stage[data-k="film"] .meter { top: calc(max(16px, env(safe-area-inset-top)) + 80px); }
+}
