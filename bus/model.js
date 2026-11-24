@@ -715,13 +715,15 @@ export function buildBus() {
     yel.push(span([-4.34, TOP, -W + 0.05], [-4.26, TOP + 0.004, W - 0.05], 0.002));
     const wc = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshStandardMaterial({map: wheelchairTex(), roughness: 0.6}));
     wc.rotation.x = -Math.PI / 2;
-    wc.position.set(1.3, FLOOR + 0.003, -0.72); // 輪椅區在左邊（司機那一側）低地板段
+    wc.position.set((DOOR_R[0] + DOOR_R[1]) / 2, FLOOR + 0.006, -0.8); // 輪椅區在左邊（司機那一側），對著中門
     // 輪椅區：左前輪拱後面一塊紅色皮面靠背板（面向車尾），沿著窗戶一根長橫桿掛著綠色的固定帶袋
     const wcGear = [mesh(span([AX_F - 0.66, 0.55, -1.15], [AX_F - 0.6, 1.3, -0.62], 0.03), mat.plastic(COL.seat, 0.55))];
     wcGear.push(mesh(rod([AX_F - 0.7, 0.95, -1.16], [0.2, 0.95, -1.16], 0.016, 10), mat.chrome()));
     wcGear.push(mesh(span([1.0, 0.72, -1.2], [1.5, 0.93, -1.13], 0.02), mat.plastic('#2f6b3a', 0.7)));
-    // 中門前那組雙人座前面的白色隔板
-    wcGear.push(mesh(span([DOOR_R[1] + 0.12, FLOOR, 0.32], [DOOR_R[1] + 0.16, FLOOR + 1.1, 1.18], 0.02), mat.plastic('#ecebe6', 0.5)));
+    // 中門後面兩邊各一塊白色隔板（右邊貼著博愛座標誌，左邊掛著輪椅固定帶），後面是第一排座位
+    for (const sz of [-1, 1]) wcGear.push(mesh(span([DOOR_R[0] - 0.14, FLOOR, sz > 0 ? 0.32 : -1.18], [DOOR_R[0] - 0.1, FLOOR + 1.0, sz > 0 ? 1.18 : -0.32], 0.02), mat.plastic('#ecebe6', 0.5)));
+    // 輪椅區地上的黃色標示區
+    wcGear.push(mesh(span([DOOR_R[0], FLOOR, -1.2], [DOOR_R[1], FLOOR + 0.004, -0.4], 0.002), mat.plastic(COL.yellow, 0.6)));
     // 輪拱內襯（黑色）是地板鼓起來的輪罩的下半，跟著地板一起拆
     // 車內燈照下來的光：三顆點光源，跟地板放在一起（車頂拆掉了座椅還是亮的）
     const cabinLights = [-3.6, 0.2, 3.8].map((x) => {
@@ -735,17 +737,17 @@ export function buildBus() {
 
   // ---- 座椅：照實車（臺北客運 HINO 弘鉅車體）24 個座位。紅色坐墊靠背、灰色背殼、上面不鏽鋼握把（Blender 做的樣板） ----
   {
-    // 照臺北客運 KKA-3131／3180／3181 的車內影片截圖：
-    // 右邊：前門後面前輪拱平台上 1 個單人座（朝前）、中門前面 1 組雙人座（背對車頭、面向中門，前面有白色隔板）
-    // 左邊低地板段沒有座位（輪椅區）；中門後面左右都是朝前的雙人座各 4 排，最後一排 5 人長椅（在引擎上面）
+    // 照 Aron 提供的實車車內照片（從前段往車尾看）和臺北客運 KKA-3131／3180／3181 的車內影片：
+    // 中門前面兩邊都是「側坐」的座椅（椅背靠著窗、面向走道）：車門那一側一組雙人、司機那一側一個；司機那一側接著是輪椅區（對著中門）
+    // 中門後面：兩邊各有一塊白色隔板，後面是朝前的雙人座（右邊第一排不用上階梯，是博愛座）；再往後上階梯，左右各 4 排，最後一排 5 人長椅
     const spots = [];
     const pair = (x, y, s, ry = 0) => spots.push([x, y, s * 0.56, ry], [x, y, s * 1.0, ry]);
-    spots.push([AX_F - 0.15, RAISED, 0.98, 0]);
-    pair(1.45, FLOOR, 1, Math.PI);
+    spots.push([1.5, FLOOR, 0.86, Math.PI / 2], [1.04, FLOOR, 0.86, Math.PI / 2]);
+    spots.push([1.45, FLOOR, -0.86, -Math.PI / 2]);
     const floorAtS = (x) => (x > -1.9 ? FLOOR : x > -4.3 ? RAISED : TOP);
     for (const x of [-0.95, -1.8, -2.65, -3.5]) {
-      pair(x, floorAtS(x), -1);
       pair(x, floorAtS(x), 1);
+      pair(x, floorAtS(x), -1);
     }
     for (const z of [-1.0, -0.5, 0, 0.5, 1.0]) spots.push([-4.95, TOP, z, 0]);
     const tmpl = (tag) => merge(skGroups('seatT', tag).map((g) => skGeo(g)));
@@ -759,8 +761,8 @@ export function buildBus() {
     spots.forEach(([x, y, z, ry], i) => {
       M.makeRotationY(ry).setPosition(x, y, z);
       for (const im of [cushion, shellI, metalI, grabI]) im.setMatrixAt(i, M);
-      // 博愛座：靠車門的前三個（深一點的紅）
-      cushion.setColorAt(i, c.set(i < 3 ? COL.priority : COL.seat));
+      // 博愛座：中門前的側坐座椅和中門後右邊第一排（深一點的紅）
+      cushion.setColorAt(i, c.set(i < 5 ? COL.priority : COL.seat));
       seatColors.push(c.clone());
     });
     for (const im of [cushion, shellI, metalI, grabI]) im.castShadow = im.receiveShadow = true;
