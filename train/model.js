@@ -240,6 +240,7 @@ function seatInstances(list, geo, m) {
 }
 
 export function buildTrain() {
+  let trackG = null;
   const root = new THREE.Group();
   root.scale.setScalar(SCALE);
   const parts = {};
@@ -342,7 +343,35 @@ export function buildTrain() {
 
   // ================= 第三層：車底 =================
   piece('bogie', skPart('bogie'), [0, -0.3, 4.5], 3); // 車底的東西往旁邊（鏡頭這邊）移出來，放在鐵軌旁邊
-  piece('wheels', skPart('wheels'), [0, -0.3, 7], 3);
+  // 車輪：每一根車軸一組（兩個車輪＋車軸），整列 48 組，用 InstancedMesh 才能每組各自轉（下載模型的輪子合成一塊，轉不了）
+  // 車軸位置：客車廂量到轉向架中心 +8.69、-8.47 m、軸距 2.53 m；車頭那節量到 +9.21、+6.71、-8.18、-10.68 m（12 車轉過來）
+  const AXLES = [];
+  for (const [i, c] of CARS.entries()) {
+    const xs = c.type === 'Tc' ? [9.21, 6.71, -8.18, -10.68].map((x) => (i === 11 ? -x : x)) : [8.69, -8.47].flatMap((b) => [b + 1.265, b - 1.265]);
+    for (const x of xs) AXLES.push({x: CAR_X[i] + x, motor: c.type !== 'T' && c.type !== 'Tc'});
+  }
+  const wheelGeo = (r) => {
+    const parts = [];
+    for (const z of [-0.7175, 0.7175]) {
+      parts.push(cylZ(r, 0.13, 0, 0, z, 28));
+      parts.push(cylZ(r + 0.03, 0.025, 0, 0, z - Math.sign(z) * 0.07, 28)); // 輪緣：卡在鐵軌內側的那一圈
+      parts.push(cylZ(r * 0.45, 0.16, 0, 0, z, 16)); // 輪轂
+    }
+    parts.push(cylZ(0.08, 1.6, 0, 0, 0, 12));
+    // 輪輻上的記號：轉起來看得出來
+    for (const z of [-0.79, 0.79]) parts.push(box([-0.03, -r * 0.8, z - 0.006], [0.03, r * 0.8, z + 0.006]));
+    return merge(parts);
+  };
+  const spinWheels = [];
+  const wheelIM = (list, r, m) => {
+    const im = new THREE.InstancedMesh(wheelGeo(r), m, list.length);
+    im.castShadow = true;
+    im.receiveShadow = true;
+    spinWheels.push({im, list});
+    return im;
+  };
+  const wheelM = mat.metal('#b3b8bd', 0.3);
+  piece('wheels', [wheelIM(AXLES, R_WHEEL, wheelM)], [0, -0.3, 7], 3);
   {
     // 牽引馬達：有馬達的車（1、5、12 車以外）每根車軸一個，掛在轉向架上、兩根車軸中間
     // 客車廂模型量到：轉向架中心在 +8.69、-8.47 m，軸距 2.53 m
@@ -351,20 +380,18 @@ export function buildTrain() {
       if (car.type === 'T' || car.type === 'Tc') continue;
       for (const b of [8.69, -8.47]) for (const a of [-1, 1]) (g[i] ||= []).push(cylZ(0.25, 0.6, CAR_X[i] + b + a * 0.6, R_WHEEL + 0.02, a * 0.15, 20));
     }
-    // 每個馬達推的那一根車軸和兩個車輪（拆到動力那一層時，看得出馬達在轉哪一對輪子；拖車的輪子沒有馬達）
-    const ws = {};
+    // 每個馬達推的那一根車軸和兩個車輪、齒輪箱：拆到動力那一層時看得出只有動力車的輪子有馬達（比車輪小一點點，組起來時藏在車輪裡面）
     for (const [i, car] of CARS.entries()) {
       if (car.type === 'T' || car.type === 'Tc') continue;
       for (const b of [8.69, -8.47])
         for (const a of [-1, 1]) {
           const x = CAR_X[i] + b + a * 1.265;
-          (ws[i] ||= []).push(cylZ(0.08, 1.5, x, R_WHEEL, 0, 12), cylZ(R_WHEEL, 0.13, x, R_WHEEL, 0.7175, 24), cylZ(R_WHEEL, 0.13, x, R_WHEEL, -0.7175, 24));
           (g[i] ||= []).push(span([x - a * 0.12 - 0.14, R_WHEEL - 0.14, a * 0.15 - 0.16], [x - a * 0.12 + 0.14, R_WHEEL + 0.14, a * 0.15 + 0.16], 0.03)); // 齒輪箱
         }
     }
     const motorM = mat.metal('#b07a35', 0.4);
     const axleM = mat.metal('#a9aeb3', 0.3);
-    piece('motors', [...Object.values(g).map((gs) => mesh(merge(gs), motorM)), ...Object.values(ws).map((gs) => mesh(merge(gs), axleM))], [0, 0, 0], 4); // 第四層（動力）：留在原位，看得出在哪一節
+    piece('motors', [...Object.values(g).map((gs) => mesh(merge(gs), motorM)), wheelIM(AXLES.filter((a) => a.motor), R_WHEEL - 0.012, axleM)], [0, 0, 0], 4); // 第四層（動力）：留在原位，看得出在哪一節
   }
 
   // ---------- 燈：車頭燈（白）、車尾燈（紅）：1 車往南開，車頭燈亮；12 車是車尾，尾燈亮 ----------
@@ -402,6 +429,7 @@ export function buildTrain() {
     track.add(mesh(merge(rails), mat.metal('#8a8f94', 0.3)), mesh(merge(ties), mat.plastic('#9a968e', 0.9)), mesh(slab, mat.plastic('#b7b2a8', 0.95)));
     track.position.y = 0.62;
     root.add(track);
+    trackG = track;
   }
   // 整列往上抬：鐵軌的道床底在地面上
   /** 每一節各自一個網格（名牌才會貼在真的那一台機器上，不會落在整列的正中間） */
@@ -482,5 +510,17 @@ export function buildTrain() {
 
   for (const p of pieces) p.obj.position.y += 0.62;
 
-  return {root, parts, pieces};
+  // 轉輪子：每組車輪繞自己的車軸轉 a（弧度）
+  const M4 = new THREE.Matrix4();
+  const RZ = new THREE.Matrix4();
+  const setWheels = (a) => {
+    RZ.makeRotationZ(-a);
+    for (const {im, list} of spinWheels) {
+      list.forEach((w, k) => im.setMatrixAt(k, M4.makeTranslation(w.x, R_WHEEL, 0).multiply(RZ)));
+      im.instanceMatrix.needsUpdate = true;
+    }
+  };
+  setWheels(0);
+  for (const {im} of spinWheels) im.computeBoundingSphere();
+  return {root, parts, pieces, track: trackG, setWheels};
 }

@@ -174,6 +174,9 @@ export default {
         if (!V.running && V.speed < 0.5) V.speed = 0;
         V.dist += (V.speed / 3.6) * dt * 0.08; // 畫面上放慢，不然地上的線會糊掉
         ctx.groundMat.uniforms.uRoll.value = V.dist * SCALE;
+        // 火車在鐵軌上跑：鏡頭跟著火車，所以是鐵軌（枕木一根 0.6 公尺）往後退；輪子照走的距離轉
+        if (model.track) model.track.position.x = -(V.dist % 0.6);
+        model.setWheels?.(V.dist / R_WHEEL);
         ctx.groundMat.uniforms.uRoad.value += ((V.speed > 1 || V.running ? 1 : 0) - ctx.groundMat.uniforms.uRoad.value) * (1 - Math.exp(-dt * 3));
         V.turnP += ((V.turned ? 1 : 0) - V.turnP) * (1 - Math.exp(-dt * 2.2));
         const a = smooth(V.turnP) * Math.PI;
