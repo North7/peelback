@@ -10,6 +10,13 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=JetBrains+Mono:wght@500&family=Noto+Sans+TC:wght@400;500;700;800&display=swap">
 <style>
+/* 2026-11-25 英文的彎撇號、彎引號（’ ‘ “ ”）交給系統的西文字型畫：Noto Sans TC 會把它們畫成全形，
+   英文模式就變成「What’ s different」「doesn’ t」像多了空格。只換這四個字元，其他字照舊。 */
+@font-face {
+  font-family: "PB Latin Quotes";
+  src: local("Helvetica Neue"), local("HelveticaNeue"), local("Arial"), local("ArialMT"), local("Roboto"), local("Segoe UI");
+  unicode-range: U+2018-2019, U+201C-201D;
+}
 /* 剝剝看 Peelback：全畫面 3D，上面只留名字和兩顆工具按鈕，常用的動作都在拇指範圍的底部一條。
    紙色／近黑兩個底；台北客運的橘是車子自己的顏色，介面的強調色用藍，只標「你現在看的零件」。 */
 :root {
@@ -27,8 +34,8 @@
   --accent-soft: rgba(47, 91, 234, 0.12);
   --good: #1f9d55;
   --shadow: 0 10px 30px rgba(40, 32, 20, 0.12), 0 2px 6px rgba(40, 32, 20, 0.08);
-  --f-sans: "Inter Tight", "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
-  --f-zh: "Noto Sans TC", "PingFang TC", "Heiti TC", sans-serif;
+  --f-sans: "Inter Tight", "PB Latin Quotes", "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+  --f-zh: "PB Latin Quotes", "Noto Sans TC", "PingFang TC", "Heiti TC", sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
   --gut: max(22px, env(safe-area-inset-left, 0px));
   --gut-r: max(22px, env(safe-area-inset-right, 0px));
