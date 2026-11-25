@@ -44,7 +44,7 @@ const STR = {
 // 每個鏡頭：多久、換到這個鏡頭要花多久（tr，快速推過去）、焦點零件或位置、名牌、字幕
 const SHOTS = [
   {dur: 6.5, tr: 4.6, focus: null, dir: [0.78, 0.3, -0.75], dist: 0.75},
-  {dur: 4, tr: 1.6, focus: null, dir: [0.75, 0.42, -0.85], dist: 1.05, card: [['Model Y', 'Model Y'], [`${SPEC.length} 公尺・${Object.keys(PARTS).length} 個零件`, `${SPEC.length} m · ${Object.keys(PARTS).length} parts`]]},
+  {dur: 6.2, tr: 1.6, focus: null, dir: [0.75, 0.42, -0.85], dist: 0.86, tour: true, card: [['Model Y', 'Model Y'], [`${SPEC.length} 公尺・${Object.keys(PARTS).length} 個零件`, `${SPEC.length} m · ${Object.keys(PARTS).length} parts`]]},
   {dur: 3.8, tr: 1.3, focus: 'seats', dir: [0.3, 0.5, -0.92], dist: 0.62, card: [[PARTS.seats.name, cap(PARTS.seats.en)], [`${SPEC.seats} 個座位：前面兩個、後面三個`, `${SPEC.seats} seats: two in front, three in back`]],
     chap: [['一層一層拆開', 'Layer by layer'], ['外殼、座椅、底盤、電池，每一層都可以單獨拿出來看。', 'Body, seats, chassis, battery: every layer comes off on its own.']]},
   {dur: 3.8, tr: 1.4, focus: 'battery', dir: [0.55, -0.3, -0.95], dist: 0.58, card: [[PARTS.battery.name, cap(PARTS.battery.en)], [`大約 ${SPEC.battery} 度電，可以把 5000 支手機充飽`, `About ${SPEC.battery} kWh, enough to charge 5,000 phones`]],
@@ -57,6 +57,9 @@ const SHOTS = [
   {dur: Infinity, tr: 2.4, at: [-19, 4, 15.5], d: 66, atP: [-17, 5, 20.5], dP: 122, az: 1.0, el: 0.19, night: true,
     chap: [['天黑了，燈亮起來', 'Lights on after dark'], ['車頭燈、尾燈、高鐵整排的窗、飛機翅膀上一閃一閃的燈，每一組都可以自己打開。', 'Headlights, tail lights, the train’s rows of windows, the blinking lights on the wings: you can switch each set on yourself.']], cta: true},
 ];
+// 拆開後快速點名的零件（由外到內，一個大約 0.3 秒）：點到的實心，其他變半透明，名牌跟著跳過去
+const TOUR = ['hood', 'doors', 'roof', 'liftgate', 'seats', 'screen', 'steering', 'dash', 'frunk', 'wheels', 'brakes', 'suspension', 'frontMotor', 'rearMotor', 'battery'];
+const TOUR_AT = 1.5, TOUR_STEP = 0.3;
 const LANES = {car: 0, bus: 4.2, train: 11.4, plane: 46}; // 公車和高鐵之間留 4 公尺左右
 // 最後兩鏡：從最前面那一團（Model Y、公車的車頭）到飛機機頭都要清楚，再往後（高鐵後段）才慢慢糊
 const FRONT = new THREE.Vector3(-1.5, 1.4, 2);
@@ -373,6 +376,26 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
   };
   const car = await loadVehicle('car');
   if (gone() || !car) return bail();
+  const ghostMats = {}; // 零件 id → [{m, op, dw}]
+  {
+    const cache = new Map();
+    for (const id in car.model.parts)
+      for (const mesh of car.model.parts[id].meshes) {
+        const one = (mat) => {
+          const k = mat.uuid + '|' + id;
+          if (!cache.has(k)) {
+            const c = mat.clone();
+            c.userData = {...mat.userData};
+            (ghostMats[id] ||= []).push({m: c, op: mat.opacity, dw: mat.depthWrite});
+            c.transparent = true;
+            cache.set(k, c);
+          }
+          return cache.get(k);
+        };
+        mesh.material = Array.isArray(mesh.material) ? mesh.material.map(one) : one(mesh.material);
+      }
+  }
+  const ghostV = Object.fromEntries(Object.keys(ghostMats).map((id) => [id, 0]));
   place(car, 'car');
   const {model, layerOf} = car;
   const C = boxes.car.getCenter(new THREE.Vector3());
@@ -692,7 +715,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
         if (si !== i) return;
         fillCard(i);
         card.classList.add('on');
-      }, RM.matches ? 0 : i === 1 ? 1500 : 800);
+      }, RM.matches ? 0 : i === 1 ? 500 : 800);
     chap.classList.remove('in');
     chap.classList.toggle('off', !s.chap);
     if (s.chap)
@@ -810,7 +833,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
 
   // ---------- 每一格 ----------
   const tgt = new THREE.Vector3();
-  let copyShown = false, t = 0, bokK = 0, shadowE = null;
+  let copyShown = false, t = 0, bokK = 0, shadowE = null, lastTour = -1, curFocus = null;
   // 太陽視角的座標軸：影子對齊像素格子用
   const LF = LDIR.clone().negate(), LR = new THREE.Vector3().crossVectors(LF, new THREE.Vector3(0, 1, 0)).normalize(), LU = new THREE.Vector3().crossVectors(LR, LF);
   const frame = (dt) => {
@@ -865,6 +888,38 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
       p.x += p.v * dt;
       p.obj.position.copy(p.base).addScaledVector(p.vec, p.x);
       if (p.hinge) p.obj.rotation.x = p.hinge * 0.985 * Math.max(0, p.x);
+    }
+    // 點名：第 2 個鏡頭拆開後一個一個零件跳過去；座椅、電池那兩個鏡頭只留那一個實心
+    let focus = null, ghostOn = false, tourI = -1;
+    if (SHOTS[si].tour && shotT > TOUR_AT) {
+      tourI = Math.min(TOUR.length - 1, Math.floor((shotT - TOUR_AT) / TOUR_STEP));
+      focus = TOUR[tourI];
+      ghostOn = true;
+    } else if ((si === 2 || si === 3) && shotT > 0.5) {
+      focus = SHOTS[si].focus;
+      ghostOn = true;
+    }
+    if (tourI !== lastTour) {
+      lastTour = tourI;
+      card.classList.toggle('tour', tourI >= 0);
+      if (tourI >= 0) {
+        const id = TOUR[tourI], Ly = car.V.LAYERS[layerOf[id] - 1];
+        $('#fcNo').textContent = '0' + layerOf[id];
+        $('#fcT').innerHTML = HP([PARTS[id].name, cap(PARTS[id].en)]);
+        $('#fcL').innerHTML = HP([`第 ${layerOf[id]} 層・${Ly.name[0]}`, `Layer ${layerOf[id]} · ${Ly.name[1]}`]);
+        card.classList.add('on');
+        if (!RM.matches) card.querySelector('.in').animate([{transform: 'scale(0.94)', opacity: 0.4}, {transform: 'none', opacity: 1}], {duration: 180, easing: 'cubic-bezier(0.34, 1.45, 0.64, 1)'});
+      }
+    }
+    curFocus = focus || SHOTS[si].focus;
+    for (const id in ghostMats) {
+      const want = ghostOn && id !== focus ? 1 : 0;
+      const v = (ghostV[id] += (want - ghostV[id]) * (1 - Math.exp(-dt * (RM.matches ? 60 : 14))));
+      for (const e of ghostMats[id]) {
+        e.m.opacity = e.op * (1 - 0.88 * v);
+        e.m.depthWrite = v < 0.4 ? e.dw : false;
+      }
+      for (const mesh of model.parts[id].meshes) mesh.castShadow = v < 0.5;
     }
     kidS.to = si > 4 || (si === 4 && shotT > 1.2) ? 1 : 0; // 鏡頭退開之後才出現（不然在鏡頭前面變一個大人形）
     kid.scale.setScalar(Math.max(0.0001, kidS.step(dt)));
@@ -987,7 +1042,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
     }
     // 名牌跟著焦點零件；手機上放不下就往畫面裡挪
     if (SHOTS[si].card) {
-      const s = toScreen(centerOf(SHOTS[si].focus), camera, canvas);
+      const s = toScreen(centerOf(curFocus), camera, canvas);
       const box = card.querySelector('.in');
       const bw = box.offsetWidth || 220;
       const flip = s.x + 48 + bw > w - 12 && s.x - 48 - bw >= 12;

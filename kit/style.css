@@ -924,3 +924,5 @@ html:not([data-lang="en"]) .icopy h1 .ln { white-space: nowrap; }
 }
 /* 介紹還在載入時右上角的「跳過」 */
 .iskipload { position: absolute; top: max(20px, env(safe-area-inset-top, 0px)); right: max(22px, env(safe-area-inset-right, 0px)); }
+/* 介紹片點名零件時：名牌跟著零件快速跳，不要淡入淡出的延遲 */
+.icard.tour, .icard.tour .lead, .icard.tour .in { transition: none; }
