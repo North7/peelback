@@ -45,7 +45,8 @@ const STR = {
 const SHOTS = [
   {dur: 6.5, tr: 4.6, focus: null, dir: [0.78, 0.3, -0.75], dist: 0.75},
   {dur: 6.2, tr: 1.6, focus: null, dir: [0.75, 0.42, -0.85], dist: 0.86, tour: true, card: [['Model Y', 'Model Y'], [`${SPEC.length} 公尺・${Object.keys(PARTS).length} 個零件`, `${SPEC.length} m · ${Object.keys(PARTS).length} parts`]]},
-  {dur: 3.8, tr: 1.3, focus: 'seats', dir: [0.3, 0.5, -0.92], dist: 0.62, card: [[PARTS.seats.name, cap(PARTS.seats.en)], [`${SPEC.seats} 個座位：前面兩個、後面三個`, `${SPEC.seats} seats: two in front, three in back`]],
+  // 座椅大家都知道：換成避震器（四個輪子各一組，鏡頭和名牌對準左前輪那一組）
+  {dur: 3.8, tr: 1.3, focus: 'suspension', dir: [0.72, 0.3, -0.62], dist: 0.42, card: [[PARTS.suspension.name, cap(PARTS.suspension.en)], ['每個輪子一組，路不平的時候，車子才不會一直跳', 'One on each wheel, so the car doesn’t bounce on bumpy roads']],
     chap: [['一層一層拆開', 'Layer by layer'], ['外殼、座椅、底盤、電池，每一層都可以單獨拿出來看。', 'Body, seats, chassis, battery: every layer comes off on its own.']]},
   {dur: 3.8, tr: 1.4, focus: 'battery', dir: [0.55, -0.3, -0.95], dist: 0.58, card: [[PARTS.battery.name, cap(PARTS.battery.en)], [`大約 ${SPEC.battery} 度電，可以把 5000 支手機充飽`, `About ${SPEC.battery} kWh, enough to charge 5,000 phones`]],
     chap: [['每個零件都有名字', 'Every part has a name'], ['點一下零件，名牌就跳出來，還會念給你聽。中文、英文、注音都有。', 'Tap a part and its name tag pops up and is read aloud, in Chinese, English or with Zhuyin.']]},
@@ -60,6 +61,7 @@ const SHOTS = [
 // 拆開後快速點名的零件（由外到內，一個大約 0.3 秒）：點到的實心，其他變半透明，名牌跟著跳過去
 const TOUR = ['hood', 'doors', 'roof', 'liftgate', 'seats', 'screen', 'steering', 'dash', 'frunk', 'wheels', 'brakes', 'suspension', 'frontMotor', 'rearMotor', 'battery'];
 const TOUR_AT = 1.5, TOUR_STEP = 0.3;
+const CORNER = ['wheels', 'brakes', 'suspension', 'doors'];
 const LANES = {car: 0, bus: 4.2, train: 11.4, plane: 46}; // 公車和高鐵之間留 4 公尺左右
 // 最後兩鏡：從最前面那一團（Model Y、公車的車頭）到飛機機頭都要清楚，再往後（高鐵後段）才慢慢糊
 const FRONT = new THREE.Vector3(-1.5, 1.4, 2);
@@ -428,6 +430,18 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
       bb.makeEmpty();
       for (const m of model.parts[id].meshes) bb.expandByObject(m);
       if (!bb.isEmpty()) (partC[id] = bb.getCenter(new THREE.Vector3())), all.union(bb);
+      // 分在四個角的零件（輪子、煞車、避震器、車門）：四組的中心在車子正中間的空處，改對準左前方那一組（鏡頭在左前方）
+      if (CORNER.includes(id) && partC[id]) {
+        const c = partC[id], q = new THREE.Box3(), v = new THREE.Vector3();
+        for (const m of model.parts[id].meshes) {
+          const pos = m.geometry.attributes.position, n = m.isInstancedMesh ? 0 : pos.count;
+          for (let i = 0; i < n; i++) {
+            v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+            if (v.x > c.x && v.z < c.z) q.expandByPoint(v);
+          }
+        }
+        if (!q.isEmpty()) partC[id] = q.getCenter(new THREE.Vector3());
+      }
     }
     allC = all.getCenter(new THREE.Vector3());
     for (const p of model.pieces) p.obj.position.copy(p.base);
