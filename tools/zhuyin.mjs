@@ -14,6 +14,10 @@ const t2s = OpenCC.Converter({from: 'tw', to: 'cn'});
 // 台灣讀音（教育部重編國語辭典）和 pinyin-pro 預設不同、或它判錯的詞。key 用簡體，值是空白分隔的拼音。
 customPinyin({
   心脏: 'xīn zàng',
+  // 剝：教育部國語辭典簡編本只有ㄅㄛ（「剝剝看」「剝開」都是ㄅㄛ），pinyin-pro 預設是大陸口語的 bāo
+  剥: 'bō',
+  剥剥看: 'bō bō kàn',
+  剥开: 'bō kāi',
   力气: 'lì qì',
   轮子: 'lún zi',
   轮胎: 'lún tāi',
@@ -119,7 +123,6 @@ customPinyin({
   数一数: 'shǔ yī shǔ',
   组回去: 'zǔ huí qù',
   拆拆看: 'chāi chāi kàn',
-  剥剥看: 'bāo bāo kàn', // 產品名：小朋友口語的「剝」ㄅㄠ
   考考你: 'kǎo kǎo nǐ',
   不玩了: 'bù wán le',
   答对了: 'dá duì le',
