@@ -159,6 +159,49 @@ function flatSideGlass(geo) {
   }
   geo.setAttribute('normal', new THREE.BufferAttribute(out, 3));
 }
+/** 車身漆的法線：同一個位置、方向相近（35 度內）的點當成同一點，沿三角形的邊和鄰居平均一次。
+ *  模型在 C 柱、車尾這種彎得急的地方點很少，原本的法線一塊一塊轉折，亮光漆一反光就像凹凸不平的鈑金；
+ *  平均一次能把轉折抹順，車身的稜線（夾角大於 35 度）不受影響 */
+function smoothPaint(geo, iters = 1) {
+  const P = geo.attributes.position, N = geo.attributes.normal, I = geo.index, n = P.count;
+  const nr = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const x = N.getX(i), y = N.getY(i), z = N.getZ(i), l = Math.hypot(x, y, z) || 1;
+    nr[i * 3] = x / l; nr[i * 3 + 1] = y / l; nr[i * 3 + 2] = z / l;
+  }
+  const byPos = new Map(), id = new Int32Array(n), reps = [];
+  for (let i = 0; i < n; i++) {
+    const k = Math.round(P.getX(i) * 1e4) + ',' + Math.round(P.getY(i) * 1e4) + ',' + Math.round(P.getZ(i) * 1e4);
+    let list = byPos.get(k);
+    if (!list) byPos.set(k, (list = []));
+    let f = -1;
+    for (const r of list) if (nr[i * 3] * nr[r * 3] + nr[i * 3 + 1] * nr[r * 3 + 1] + nr[i * 3 + 2] * nr[r * 3 + 2] > 0.82) { f = r; break; }
+    if (f < 0) { list.push(i); reps.push(i); f = i; }
+    id[i] = f;
+  }
+  const nb = new Map();
+  const link = (a, b) => { a = id[a]; b = id[b]; if (a !== b) (nb.get(a) || nb.set(a, new Set()).get(a)).add(b); };
+  for (let t = 0; t < I.count; t += 3) {
+    const a = I.getX(t), b = I.getX(t + 1), c = I.getX(t + 2);
+    link(a, b); link(b, a); link(b, c); link(c, b); link(c, a); link(a, c);
+  }
+  let cur = nr;
+  for (let it = 0; it < iters; it++) {
+    const nx = Float32Array.from(cur);
+    for (const r of reps) {
+      const s = nb.get(r);
+      if (!s) continue;
+      let x = cur[r * 3], y = cur[r * 3 + 1], z = cur[r * 3 + 2];
+      for (const q of s) { x += cur[q * 3]; y += cur[q * 3 + 1]; z += cur[q * 3 + 2]; }
+      const l = Math.hypot(x, y, z) || 1;
+      nx[r * 3] = x / l; nx[r * 3 + 1] = y / l; nx[r * 3 + 2] = z / l;
+    }
+    cur = nx;
+  }
+  const out = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { const r = id[i] * 3; out[i * 3] = cur[r]; out[i * 3 + 1] = cur[r + 1]; out[i * 3 + 2] = cur[r + 2]; }
+  geo.setAttribute('normal', new THREE.BufferAttribute(out, 3));
+}
 /** 底盤、電池、馬達（另外下載的模型）：位置 float32、索引，法線現算 */
 function innerGeo(g) {
   const buf = IN_BIN.buffer;
@@ -200,7 +243,7 @@ function skMaterial(name, part, tag = '') {
   switch (name) {
     case 'Material_2125765635':
       // 車身漆：新款 Model Y 的水銀灰（Quicksilver），照特斯拉官網照片：偏中性的深灰、帶金屬感，表面亮光漆有清楚但不刺眼的反光
-      return phys({color: '#56565b', metalness: 0.65, roughness: 0.3, clearcoat: 0.7, clearcoatRoughness: 0.12, envMapIntensity: 0.85});
+      return phys({color: '#56565b', metalness: 0.65, roughness: 0.36, clearcoat: 0.7, clearcoatRoughness: 0.25, envMapIntensity: 0.85});
     case 'glass_base':
       if (part === 'liftgate') return phys({color: '#060709', roughness: 0.25, specularIntensity: 0.12, envMapIntensity: 0.12, transparent: true, opacity: 0.96, depthWrite: false});
       // 擋風玻璃：太陽和棚燈在玻璃上的倒影收弱，不然從前上方看會像車裡有一團白光
@@ -448,6 +491,7 @@ export function buildCar() {
     // 側窗（車門玻璃、車身兩側的小窗）：模型的點很少、法線又存得很粗，玻璃像鏡子一樣把誤差放大，倒影變成波浪。
     // 實車的側窗幾乎是平的：每一側的法線統一成那一側玻璃的平均方向。擋風玻璃、後窗本來就是彎的，不動
     if (g.mat === 'glass_base' && !['windshield', 'liftgate'].includes(g.part)) flatSideGlass(o.geometry);
+    if (g.mat === 'Material_2125765635') smoothPaint(o.geometry);
     if (g.tag === 'turn') o.userData.turnEnd = true;
     if (m.transparent) o.castShadow = false;
     if (g.part === 'wheels') (wheelMesh[g.tag] ||= []).push(o);
