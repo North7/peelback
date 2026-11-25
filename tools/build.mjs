@@ -52,7 +52,8 @@ const {FAVICON} = await import('../kit/logo.js');
 const {LOADER} = await import('../kit/loader.js');
 // 網頁一打開就先照存著的日夜設定上色、放載入的輪子（程式還在下載時不要一片空白，也不要先白後黑閃一下）
 // 分享到 LINE、Facebook、iMessage 的預覽：標題、一句話、預覽圖（public/og.png，用 tools/og.mjs 產生）。
-// 沒有這些時 LINE 會抓頁面上第一段字，抓到的是載入畫面的「0%」。#intro 和首頁是同一頁，# 後面不會送到伺服器，兩個網址都吃這一份
+// 沒有這些時 LINE 會抓頁面上第一段字，抓到的是載入畫面的「0%」。#intro 和首頁是同一頁，# 後面不會送到伺服器，兩個網址都吃這一份。
+// 不寫 og:url：寫了的話 LINE、Facebook 會把加了 ?v=2 的網址也導回首頁那份舊的快取
 const SITE = 'https://peelback.aronlab.dev/';
 const DESC = '公車、飛機、汽車、高鐵，照實車的尺寸和零件做成 3D。點一下一層一層拆開，看看裡面有什麼；零件名字有中文、英文和注音。';
 const OG_V = fs.existsSync(path.join(ROOT, 'public/og.png')) ? fs.statSync(path.join(ROOT, 'public/og.png')).mtimeMs.toFixed(0).slice(-8) : '1';
@@ -62,7 +63,6 @@ const SHARE = [
   `<meta property="og:site_name" content="Aron Lab">`,
   `<meta property="og:title" content="剝剝看 Peelback：把真的交通工具，一層一層剝開">`,
   `<meta property="og:description" content="${DESC}">`,
-  `<meta property="og:url" content="${SITE}">`,
   `<meta property="og:image" content="${SITE}og.png?v=${OG_V}">`,
   `<meta property="og:image:width" content="1200">`,
   `<meta property="og:image:height" content="630">`,
