@@ -28,11 +28,11 @@ export const R_NOSE = 0.53;
 const ENG = {x: NOSE_X - 25.78 - (5.23 - 3.19) * 0.761, y: 0.76 + (4.145 - 1.49) * 0.761, z: 10.5}; // 風扇中心（唇緣離機頭 25.78 m、短艙離地 0.76 m）
 
 // ---------- 下載的模型 ----------
-import {loadBin} from '../kit/load.js';
+import {loadBins} from '../kit/load.js';
 // 3D 資料：點進飛機時才下載、解壓（preload 做完才 build）
 let SK_BIN = null;
-export async function preload() {
-  SK_BIN = await loadBin(SK_ZIP);
+export async function preload(onp) {
+  [SK_BIN] = await loadBins([SK_ZIP], onp);
 }
 function skGeo(g) {
   const q = new Uint16Array(SK_BIN.buffer, SK_BIN.byteOffset + g.pos, g.nv * 3);

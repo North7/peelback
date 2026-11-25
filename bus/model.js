@@ -9,11 +9,11 @@ import {SPEC} from './data.js';
 import SK_ZIP from './sk/bus.bin';
 import SK_META from './sk/bus.json';
 // 外殼、車頭車尾、後照鏡、車門：tools/bus_build.py 在 Blender 照實車照片建的（弘鉅車體 HINO HS8JRVL-UTF）
-import {loadBin} from '../kit/load.js';
+import {loadBins} from '../kit/load.js';
 // 3D 資料：點進公車時才下載、解壓（preload 做完才 build）
 let SK_BIN = null;
-export async function preload() {
-  SK_BIN = await loadBin(SK_ZIP);
+export async function preload(onp) {
+  [SK_BIN] = await loadBins([SK_ZIP], onp);
 }
 function skGeo(g) {
   const q = new Uint16Array(SK_BIN.buffer, SK_BIN.byteOffset + g.pos, g.nv * 3);

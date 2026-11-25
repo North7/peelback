@@ -19,6 +19,7 @@ import {L, H, HP} from './i18n.js';
 import {LOGO} from './logo.js';
 import {sysMenu, bindSys, applyThemeAttr} from './ui.js';
 import {PARTS, SPEC} from '../car/data.js';
+import {LOADER, progress, paintFrame} from './loader.js';
 
 const KID = 1.15; // 小朋友身高（和網站裡「幾個小朋友躺成一排」同一個數字）
 const LEN = {bus: 12.2, plane: 73.79, car: 4.79, train: 304}; // 各車 data.js 的 SPEC.length
@@ -205,9 +206,18 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
   const ac = new AbortController();
   const sig = {signal: ac.signal};
   const info = Object.fromEntries(catalog.map((x) => [x.id, x]));
-  // 載入的輪子＋右上角「跳過」：等不及的人可以直接進展廳（不用按返回）
-  app.innerHTML = `<div class="intro" id="intro"><canvas class="igl"></canvas></div><div class="loading" id="iLoad"><div class="wheel"></div><button class="ipill iskipload" id="iSkipLoad">${HP(STR.skip)}</button></div>`;
+  // 載入畫面（輪子沿著路滾、四台車建好一台亮一台）＋右上角「跳過」：等不及的人可以直接進展廳（不用按返回）
+  // 順序：Model Y 先下載、先建（第一個鏡頭就是它），它下載完，其他三台在它建模型的時候一起下載
+  const ORDER = ['car', 'bus', 'plane', 'train'];
+  app.innerHTML = `<div class="intro" id="intro"><canvas class="igl"></canvas></div>` + LOADER(ORDER.map((id) => [id, info[id].icon]), `<button class="ipill iskipload" id="iSkipLoad">${HP(STR.skip)}</button>`);
+  app.querySelector('.lp').id = 'iLoad';
   app.querySelector('#iSkipLoad').onclick = () => onDone();
+  // 權重照手機上量的時間（4G、中階手機）：下載照檔案大小（飛機 3.2 MB 最大、Model Y 2 MB），加上建模型；秒數是建模型大概要多久；最後熱身編譯著色器
+  const prog = progress(app.querySelector('#iLoad'), [['car', 24, 0.35], ['bus', 8, 0.3], ['plane', 41, 0.65], ['train', 11, 0.25], ['warm', 16, 0.75]]);
+  const dl = (id) => vehicles[id].preload?.((f) => prog.bytes(id, f));
+  const pre = {car: Promise.resolve(dl('car'))};
+  for (const id of ORDER.slice(1)) pre[id] = pre.car.then(() => dl(id));
+  for (const id in pre) pre[id].catch(() => {}); // 失敗的話下面 await 的地方會再丟一次錯
   const root = app.querySelector('#intro');
   const canvas = root.querySelector('canvas');
   const de = document.documentElement;
@@ -218,7 +228,10 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
   const loadVehicle = async (id) => {
     const V = vehicles[id];
     await V.preload?.();
+    prog.begin(id);
     if (gone()) return null; // 已經離開了：不要再建（建模型很重）
+    await paintFrame(); // 建模型會卡住畫面一下：先把目前的進度畫出去
+    if (gone()) return null;
     const model = V.build();
     const layerOf = {};
     V.LAYERS.forEach((Ly, i) => Ly.ids.forEach((pid) => (layerOf[pid] = i + 1)));
@@ -228,7 +241,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
       if (V.present && !V.present(p.id, variant)) p.obj.visible = false;
     }
     model.root.updateMatrixWorld(true);
-    return {V, model, layerOf};
+    return {V, model, layerOf, id};
   };
 
   // ---------- 場景（和網站同一套光：色調、環境光、太陽、接觸陰影） ----------
@@ -266,6 +279,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
     renderer.forceContextLoss();
   };
   const bail = () => {
+    prog.stop();
     ac.abort();
     releaseGL();
     return {dispose() {}};
@@ -402,6 +416,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
   }
   const ghostV = Object.fromEntries(Object.keys(ghostMats).map((id) => [id, 0]));
   place(car, 'car');
+  prog.done('car');
   const {model, layerOf} = car;
   const C = boxes.car.getCenter(new THREE.Vector3());
 
@@ -484,12 +499,19 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
   boxes.kid = new THREE.Box3(new THREE.Vector3(0.9, 0, -2.9), new THREE.Vector3(1.5, KID, -2.3));
   const kidS = new Spring(0, 120, 11);
 
-  // ---------- 其他三台：開播前就準備好（播放中才建會卡一下） ----------
-  for (const id of ['bus', 'plane', 'train']) {
+  // ---------- 其他三台：開播前就準備好（播放中才建會卡一下）；先下載好的先建（飛機最大，不要讓高鐵等它） ----------
+  const left = ORDER.slice(1);
+  while (left.length) {
+    const id = await Promise.race(left.map((k) => pre[k].then(() => k)));
+    left.splice(left.indexOf(id), 1);
     const v = await loadVehicle(id);
     if (gone() || !v) return bail();
     place(v, id);
+    prog.done(id);
   }
+  prog.begin('warm');
+  await paintFrame();
+  if (gone()) return bail();
 
   // ---------- 後製：燈的光暈（只有晚上）、景深 ----------
   const composer = new EffectComposer(renderer);
@@ -845,6 +867,7 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
   setText(0);
   if (!playing) hint.classList.remove('gone');
   // 載入的輪子在介紹外面（#app 底下），淡掉再拿掉
+  prog.finish();
   app.querySelector('#iLoad')?.classList.add('done');
   later(() => app.querySelector('#iLoad')?.remove(), 600);
 

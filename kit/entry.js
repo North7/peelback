@@ -6,6 +6,7 @@ import {startHome} from './home.js';
 import {startIntro} from './intro.js';
 import {applyLang, getLang} from './i18n.js';
 import {applyThemeAttr} from './ui.js';
+import {LOADER, progress} from './loader.js';
 import bus, {BUS_ICON} from '../bus/vehicle.js';
 import plane, {PLANE_ICON} from '../plane/vehicle.js';
 import car, {CAR_ICON} from '../car/vehicle.js';
@@ -31,7 +32,7 @@ const CATALOG = [
   {id: 'plane', cat: 'plane', no: '02', brand: ['星宇航空', 'STARLUX'], name: ['A350-1000', 'A350-1000'], img: IMG_PLANE},
   {id: 'car', cat: 'car', no: '03', brand: ['特斯拉', 'Tesla'], name: ['Model Y', 'Model Y'], img: IMG_CAR},
   {id: 'train', cat: 'train', no: '04', brand: ['台灣高鐵', 'Taiwan High Speed Rail'], name: ['700T', '700T'], img: IMG_TRAIN},
-].map((x) => ({...x, layers: VEHICLES[x.id].LAYERS.length, parts: nParts(VEHICLES[x.id])}));
+].map((x) => ({...x, icon: CATS.find((c) => c.id === x.cat).icon, layers: VEHICLES[x.id].LAYERS.length, parts: nParts(VEHICLES[x.id])}));
 // 還沒有任何一台的分類先不顯示（火車、船做好再打開）
 const SHOWN_CATS = CATS.filter((c) => c.id === 'all' || CATALOG.some((x) => x.cat === c.id));
 
@@ -81,13 +82,16 @@ async function route() {
     lastId = want;
     const item = CATALOG.find((x) => x.id === want);
     const V = VEHICLES[want];
-    // 這台的 3D 資料點進來才下載：下載的時候先轉載入的輪子
+    // 這台的 3D 資料點進來才下載：下載的時候先轉載入的輪子（和介紹片同一個，上面只有這一台）
     if (V.preload) {
       const app = document.getElementById('app');
-      app.innerHTML = '<div class="loading"><div class="wheel"></div></div>';
+      app.innerHTML = LOADER([[want, item.icon]]);
+      const prog = progress(app.firstChild, [[want, 1, 0.3]]);
       try {
-        await V.preload();
+        await V.preload((f) => prog.bytes(want, f));
+        prog.finish();
       } catch (e) {
+        prog.stop();
         console.error(e);
         app.innerHTML = `<div class="loading"><p class="load-err">${getLang() === 'en' ? 'Couldn’t load. Check the connection and reload.' : '載入失敗，請檢查網路後重新整理。'}</p></div>`;
         return;

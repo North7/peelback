@@ -19,11 +19,11 @@ import T_MARK from './sk/tex/Marker_blinn.jpg';
 import T_CARNO from './sk/tex/Car_No.jpg';
 import {CARS} from './data.js';
 
-import {loadBin} from '../kit/load.js';
+import {loadBins} from '../kit/load.js';
 // 3D 資料：點進高鐵時才下載、解壓（preload 做完才 build）
 let SK_BIN = null;
-export async function preload() {
-  SK_BIN = await loadBin(SK_ZIP);
+export async function preload(onp) {
+  [SK_BIN] = await loadBins([SK_ZIP], onp);
 }
 const TEX_URL = {THSR_Color_blinn: T_LIVERY, Ctrl_Panel_blinn: T_PANEL, Auto_Sale_blinn: T_VEND, Color_Ground_blinn: T_FLOOR, Color_Gray_Inside: T_INSIDE, Color_Door_Gray: T_DOOR, Marker_blinn: T_MARK, Car_No: T_CARNO};
 

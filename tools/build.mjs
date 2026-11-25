@@ -49,17 +49,21 @@ const assets = resSplit.outputFiles.filter((f) => f.path.includes(`${path.sep}as
 const css = fs.readFileSync(path.join(ROOT, 'kit/style.css'), 'utf8');
 const TITLE = TITLES[name];
 const {FAVICON} = await import('../kit/logo.js');
+const {LOADER} = await import('../kit/loader.js');
+// 網頁一打開就先照存著的日夜設定上色、放載入的輪子（程式還在下載時不要一片空白，也不要先白後黑閃一下）
+const BOOT_THEME = `<script>try{document.documentElement.dataset.theme=localStorage.getItem('peelback.theme')==='dark'?'dark':'light'}catch(e){}</script>`;
 const ICONLINK = `<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(FAVICON)}"><meta name="theme-color" content="#070808">`;
 const FONTS = '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=JetBrains+Mono:wght@500&family=Noto+Sans+TC:wght@400;500;700;800&display=swap">';
 
 const page = (js) => `<title>${TITLE}</title>
 ${ICONLINK}
+${BOOT_THEME}
 <meta name="claude:viewport-fit-sides" content="cover">
 ${FONTS}
 <style>
 ${css}
 </style>
-<div id="app"></div>
+<div id="app">${LOADER()}</div>
 <script type="module">
 ${js}
 </script>
@@ -70,7 +74,7 @@ const wrap = (inner) => `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-${inner.replace('<div id="app"></div>', '</head>\n<body>\n<div id="app"></div>')}</body>
+${inner.replace('<div id="app">', '</head>\n<body>\n<div id="app">')}</body>
 </html>
 `;
 const full = wrap(page(js));

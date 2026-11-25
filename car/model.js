@@ -10,12 +10,12 @@ import SK_ZIP from './sk/model.bin';
 import SK_META from './sk/model.json';
 import IN_ZIP from './sk/inner.bin';
 // 模型檔是 zlib 壓縮過的，位置存成 0–65535 的整數（每組記最小值和間距）
-import {loadBin} from '../kit/load.js';
+import {loadBins} from '../kit/load.js';
 // 3D 資料：點進汽車時才下載、解壓（preload 做完才 build）
 let SK_BIN = null;
 let IN_BIN = null;
-export async function preload() {
-  [SK_BIN, IN_BIN] = await Promise.all([loadBin(SK_ZIP), loadBin(IN_ZIP)]);
+export async function preload(onp) {
+  [SK_BIN, IN_BIN] = await loadBins([SK_ZIP, IN_ZIP], onp);
 }
 function dequant(buf, off, g) {
   const q = new Uint16Array(buf, off, g.nv * 3);
@@ -332,17 +332,60 @@ function shellCopy(o, d = 0.0015) {
   for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) + n.getX(i) * d, p.getY(i) + n.getY(i) * d, p.getZ(i) + n.getZ(i) * d);
   return g;
 }
+/**
+ * 一整格沿 +x 的射線（y、z 都在 [y0, y1]×[z0, z1] 裡）：先挑出這塊範圍裡的三角形，每條射線只試這些。
+ * 結果和 hit() 一樣（最近的交點、法線朝向射線來的方向、單面材質不打背面），但不用每條都把整台車身試一遍
+ * （尾燈紅光 1300 多條射線，原本手機上要 2 秒多）
+ */
+function xHitter(meshes, y0, y1, z0, z1) {
+  const tris = [];
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  for (const o of meshes) {
+    o.updateMatrixWorld(true);
+    const g = o.geometry, P = g.attributes.position, I = g.index, n = I ? I.count : P.count;
+    const mats = [].concat(o.material);
+    const groups = Array.isArray(o.material) && g.groups.length ? g.groups : [{start: 0, count: n, materialIndex: 0}];
+    for (const gr of groups) {
+      const side = mats[gr.materialIndex || 0]?.side;
+      if (side === undefined) continue;
+      for (let k = gr.start, e = Math.min(n, gr.start + gr.count); k + 2 < e; k += 3) {
+        const ia = I ? I.getX(k) : k, ib = I ? I.getX(k + 1) : k + 1, ic = I ? I.getX(k + 2) : k + 2;
+        a.fromBufferAttribute(P, ia).applyMatrix4(o.matrixWorld);
+        b.fromBufferAttribute(P, ib).applyMatrix4(o.matrixWorld);
+        c.fromBufferAttribute(P, ic).applyMatrix4(o.matrixWorld);
+        if (Math.max(a.y, b.y, c.y) < y0 || Math.min(a.y, b.y, c.y) > y1 || Math.max(a.z, b.z, c.z) < z0 || Math.min(a.z, b.z, c.z) > z1) continue;
+        const la = new THREE.Vector3().fromBufferAttribute(P, ia), lb = new THREE.Vector3().fromBufferAttribute(P, ib), lc = new THREE.Vector3().fromBufferAttribute(P, ic);
+        tris.push({a: a.clone(), b: b.clone(), c: c.clone(), n: THREE.Triangle.getNormal(la, lb, lc, new THREE.Vector3()), side});
+      }
+    }
+  }
+  const ray = new THREE.Ray(), pt = new THREE.Vector3();
+  return (o, d) => {
+    ray.set(new THREE.Vector3(...o), new THREE.Vector3(...d).normalize());
+    let best = null, bd = Infinity;
+    for (const t of tris) {
+      const r = t.side === THREE.BackSide ? ray.intersectTriangle(t.c, t.b, t.a, true, pt) : ray.intersectTriangle(t.a, t.b, t.c, t.side === THREE.FrontSide, pt);
+      if (!r) continue;
+      const dd = ray.origin.distanceTo(pt);
+      if (dd < bd) (bd = dd), (best = {p: pt.clone(), n: t.n});
+    }
+    if (!best) return null;
+    const n = best.n.clone();
+    if (n.dot(ray.direction) > 0) n.negate();
+    return {p: best.p, n};
+  };
+}
 /** 尾燈照在下面斜面上的紅光：一格一格往車身表面打射線，貼一片由上往下變淡的發光面 */
 function spillGlow(meshes, z0, z1, yTop, yBot, m) {
-  for (const o of meshes) o.updateMatrixWorld(true);
   const NZ = 40, NY = 10;
+  const xhit = xHitter(meshes, Math.min(yTop, yBot) - 1e-4, Math.max(yTop, yBot) + 1e-4, Math.min(z0, z1) - 1e-4, Math.max(z0, z1) + 1e-4);
   const pos = [], uv = [], idx = [];
   const grid = [];
   for (let j = 0; j <= NY; j++) {
     const row = [];
     for (let i = 0; i <= NZ; i++) {
       const z = lerp(z0, z1, i / NZ), y = lerp(yTop, yBot, j / NY);
-      const h = hit(meshes, [-4, y, z], [1, 0, 0]);
+      const h = xhit([-4, y, z], [1, 0, 0]);
       if (h && h.p.x < -1.75 && Math.abs(h.n.z) < 0.45 && h.n.x < -0.1) { // 貼在尾燈下方朝後、朝下的斜面；朝側面的燈殼不要（會漏光）
         const q = h.p.clone().addScaledVector(h.n, 0.003);
         row.push(pos.length / 3);
