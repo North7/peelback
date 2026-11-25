@@ -321,6 +321,7 @@ ${
   );
   const gtao = new GTAOPass(scene, camera, 4, 4);
   gtao.output = GTAOPass.OUTPUT.Default;
+  gtao.normalMaterial.side = THREE.DoubleSide; // 雙面的零件（座椅、置物槽）背面朝鏡頭時也要算進去，不然底下的東西會透出陰影
   gtao.blendIntensity = 0; // 一開始關著：量出這台裝置夠快才慢慢淡入（見每格最後）
   gtao.enabled = false;
   gtao.updateGtaoMaterial({radius: V.ao ?? 0.3, distanceExponent: 1, thickness: 1, scale: 1, samples: 16, distanceFallOff: 1, screenSpaceRadius: false});

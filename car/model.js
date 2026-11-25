@@ -1,7 +1,8 @@
 // 特斯拉 Model Y 新版（2025「Juniper」），單位公尺，整台在 root 放大 2 倍（和公車差不多大）。
 // x 往車頭，y 往上，z 往右。
 // 外殼、輪子用 Sketchfab 上 BloxBloger 做的「2025 Tesla Model Y」（CC BY-NC 4.0，非商業、要寫作者），
-// 在 Blender 照位置拆成零件、換成這裡的座標（tools/sk_export.py → car/sk/）。車子裡面和底盤、電池是簡化的示意。
+// 在 Blender 照位置拆成零件、換成這裡的座標（tools/sk_export.py → car/sk/）。座椅、儀表板用模型的；方向盤、螢幕、扶手台、
+// 前後車廂是照汽車之家 2027 款全景和實車照片自己做的（ref/car/int/）。底盤、電池是簡化的示意。
 import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
@@ -28,6 +29,7 @@ function dequant(buf, off, g) {
   return out;
 }
 import IN_META from './sk/inner.json';
+import CAR_IMG from '../kit/img/car.webp';
 
 export const SCALE = 2;
 export const LEN = 4.79;
@@ -386,53 +388,362 @@ function spillTex() {
   }));
 }
 
-function screenTex(w, h, rear = false) {
-  return canvasTex(w, h, (g) => {
-    g.fillStyle = '#0b0f16';
+// ---------- 車子裡面（照新款 Model Y 的實車照片：ref/car/all/59.jpg、ref/car/int/） ----------
+/** 圓角長方形的平面外形（中心在原點） */
+function rrShape(w, h, r) {
+  const s = new THREE.Shape();
+  const x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y);
+  s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h);
+  s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r);
+  s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+/** 平面外形 → 面朝 +z 的平面，貼圖座標照外框攤滿 */
+function flatShape(shape, w, h, seg = 6) {
+  const g = new THREE.ShapeGeometry(shape, seg);
+  const p = g.attributes.position, uv = g.attributes.uv;
+  for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / w + 0.5, p.getY(i) / h + 0.5);
+  return g;
+}
+/** 固定的亂數（每次畫出來的紋路都一樣，縮圖才不會每次不同） */
+function rng(seed) {
+  let s = seed >>> 0;
+  return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+}
+/** 儀表板中間那條深灰色織布（2027 款實車：比上下的塑膠淺一點的灰） */
+function fabricTex() {
+  const t = canvasTex(512, 64, (g, w, h) => {
+    const r = rng(7);
+    g.fillStyle = '#4b4c50';
     g.fillRect(0, 0, w, h);
-    if (rear) {
-      g.fillStyle = '#1d2533';
-      g.fillRect(0, 0, w, h);
-      g.fillStyle = '#7fb3ff';
-      g.font = `600 ${h * 0.16}px sans-serif`;
-      g.fillText('22°', w * 0.1, h * 0.35);
-      g.fillStyle = '#ffffff';
-      for (let i = 0; i < 4; i++) {
-        g.beginPath();
-        g.arc(w * (0.2 + i * 0.2), h * 0.72, h * 0.08, 0, Math.PI * 2);
-        g.fill();
-      }
-      return;
+    for (let i = 0; i < 5200; i++) {
+      g.fillStyle = r() < 0.5 ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.1)';
+      g.fillRect(r() * w, r() * h, 1 + r() * 2.5, 1);
     }
-    // 中控螢幕：左邊是車子的小圖，右邊是地圖
-    g.fillStyle = '#121822';
-    g.fillRect(0, 0, w * 0.34, h);
-    g.fillStyle = '#e8ebef';
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(6, 1);
+  return t;
+}
+/** 中控螢幕：特斯拉的淺色介面。左邊是這台車自己的圖，右邊是地圖，最下面一排圖示 */
+function frontScreenTex(W = 1024, H = 640) {
+  const draw = (g, img) => {
+    g.fillStyle = '#f4f5f7';
+    g.fillRect(0, 0, W, H);
+    // 地圖
+    const mx = W * 0.4, mw = W - mx, mh = H * 0.88;
+    g.save();
     g.beginPath();
-    g.roundRect(w * 0.09, h * 0.3, w * 0.16, h * 0.42, 30);
+    g.rect(mx, 0, mw, mh);
+    g.clip();
+    g.fillStyle = '#ebede6';
+    g.fillRect(mx, 0, mw, mh);
+    g.fillStyle = '#d3e6c7';
+    g.beginPath();
+    g.roundRect(mx + mw * 0.62, mh * 0.06, mw * 0.26, mh * 0.24, 18);
     g.fill();
-    g.fillStyle = '#7fb3ff';
-    g.font = `700 ${h * 0.12}px sans-serif`;
-    g.fillText('P R N D', w * 0.04, h * 0.18);
-    g.fillStyle = '#1a2332';
-    g.fillRect(w * 0.34, 0, w * 0.66, h);
-    g.strokeStyle = '#2f4058';
-    g.lineWidth = 6;
-    for (let i = 0; i < 9; i++) {
+    g.fillStyle = '#bcd8ef';
+    g.beginPath();
+    g.moveTo(mx, mh * 0.66);
+    g.bezierCurveTo(mx + mw * 0.3, mh * 0.56, mx + mw * 0.55, mh * 0.82, W, mh * 0.7);
+    g.lineTo(W, mh * 0.8);
+    g.bezierCurveTo(mx + mw * 0.55, mh * 0.92, mx + mw * 0.3, mh * 0.66, mx, mh * 0.76);
+    g.fill();
+    const P = (u, v) => [mx + u * mw, v * mh];
+    const road = (lw, col, pts) => {
+      g.strokeStyle = col;
+      g.lineWidth = lw;
+      g.lineCap = g.lineJoin = 'round';
       g.beginPath();
-      g.moveTo(w * 0.34 + i * 60, 0);
-      g.lineTo(w * 0.34 + i * 60 + 120, h);
+      pts.forEach(([u, v], i) => g[i ? 'lineTo' : 'moveTo'](...P(u, v)));
+      g.stroke();
+    };
+    for (const [lw, pts] of [[20, [[0, 0.34], [1, 0.28]]], [13, [[0.22, 0], [0.3, 1]]], [13, [[0.66, 0], [0.58, 1]]], [10, [[0, 0.52], [1, 0.47]]], [9, [[0.34, 0.05], [0.95, 0.12]]], [9, [[0.05, 0.85], [0.5, 0.97]]]]) {
+      road(lw + 4, '#d9dcd5', pts);
+      road(lw, '#ffffff', pts);
+    }
+    // 導航路線和車子的位置
+    road(11, '#3e6ae1', [[0.28, 0.92], [0.255, 0.5], [0.24, 0.33], [0.62, 0.3], [0.64, 0.05]]);
+    const [ax, ay] = P(0.28, 0.9);
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.arc(ax, ay, 22, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#3e6ae1';
+    g.beginPath();
+    g.moveTo(ax, ay - 15);
+    g.lineTo(ax + 11, ay + 12);
+    g.lineTo(ax, ay + 6);
+    g.lineTo(ax - 11, ay + 12);
+    g.closePath();
+    g.fill();
+    g.restore();
+    // 左上角：檔位和電量
+    g.fillStyle = '#9aa0a8';
+    g.font = `600 ${H * 0.045}px sans-serif`;
+    g.fillText('P  R  N  D', W * 0.03, H * 0.075);
+    g.fillStyle = '#17181a';
+    g.fillText('P', W * 0.03, H * 0.075);
+    g.fillStyle = '#17181a';
+    g.fillText('80%', W * 0.3, H * 0.075);
+    g.strokeStyle = '#17181a';
+    g.lineWidth = 3;
+    g.strokeRect(W * 0.255, H * 0.045, W * 0.035, H * 0.035);
+    g.fillStyle = '#35c46a';
+    g.fillRect(W * 0.258, H * 0.05, W * 0.024, H * 0.025);
+    // 車子
+    if (img) {
+      const iw = W * 0.34, ih = (iw * img.height) / img.width;
+      g.drawImage(img, W * 0.03, H * 0.44 - ih / 2, iw, ih);
+    }
+    // 最下面一排：溫度、圖示
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, H * 0.88, W, H * 0.12);
+    g.fillStyle = '#e1e3e6';
+    g.fillRect(0, H * 0.88, W, 2);
+    g.fillStyle = '#17181a';
+    g.font = `600 ${H * 0.05}px sans-serif`;
+    g.fillText('22°', W * 0.2, H * 0.958);
+    g.fillStyle = '#5f646b';
+    for (const [i, c] of ['#5f646b', '#e8423f', '#35c46a', '#3e6ae1', '#5f646b'].entries()) {
+      g.fillStyle = c;
+      g.beginPath();
+      g.roundRect(W * (0.42 + i * 0.07), H * 0.905, H * 0.06, H * 0.06, 9);
+      g.fill();
+    }
+  };
+  const tex = canvasTex(W, H, (g) => draw(g, null));
+  const img = new Image();
+  img.onload = () => {
+    draw(tex.image.getContext('2d'), img);
+    tex.needsUpdate = true;
+  };
+  img.src = CAR_IMG;
+  return tex;
+}
+/** 後座螢幕：深色介面，冷氣溫度、風量、座椅加熱和音樂 */
+function rearScreenTex(W = 512, H = 320) {
+  return canvasTex(W, H, (g) => {
+    g.fillStyle = '#111316';
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = '#ffffff';
+    g.font = `600 ${H * 0.2}px sans-serif`;
+    g.fillText('22°', W * 0.07, H * 0.36);
+    g.fillStyle = '#8a9099';
+    g.font = `500 ${H * 0.07}px sans-serif`;
+    g.fillText('AUTO', W * 0.08, H * 0.48);
+    // 風量的條
+    for (let i = 0; i < 6; i++) {
+      g.fillStyle = i < 4 ? '#3e6ae1' : '#2b2f35';
+      g.beginPath();
+      g.roundRect(W * (0.07 + i * 0.045), H * (0.66 - i * 0.03), W * 0.03, H * (0.12 + i * 0.03), 4);
+      g.fill();
+    }
+    // 音樂卡片
+    g.fillStyle = '#1c1f24';
+    g.beginPath();
+    g.roundRect(W * 0.46, H * 0.1, W * 0.48, H * 0.62, 14);
+    g.fill();
+    g.fillStyle = '#e8423f';
+    g.beginPath();
+    g.roundRect(W * 0.5, H * 0.17, H * 0.3, H * 0.3, 10);
+    g.fill();
+    g.fillStyle = '#d7dbe0';
+    g.fillRect(W * 0.5, H * 0.56, W * 0.4, 4);
+    g.fillStyle = '#3e6ae1';
+    g.fillRect(W * 0.5, H * 0.56, W * 0.16, 4);
+    // 下面一排：座椅加熱
+    for (let i = 0; i < 3; i++) {
+      g.strokeStyle = i === 1 ? '#ff7a3d' : '#6b717a';
+      g.lineWidth = 5;
+      g.beginPath();
+      g.roundRect(W * (0.3 + i * 0.15), H * 0.8, W * 0.08, H * 0.12, 8);
       g.stroke();
     }
-    g.strokeStyle = '#3d8bff';
-    g.lineWidth = 10;
-    g.beginPath();
-    g.moveTo(w * 0.5, h * 0.9);
-    g.quadraticCurveTo(w * 0.62, h * 0.4, w * 0.9, h * 0.25);
-    g.stroke();
-    g.fillStyle = '#101722';
-    g.fillRect(0, h * 0.88, w, h * 0.12);
   });
+}
+/** 從車廂往前（+x）打，找儀表板正面在 (y, z) 這一點的 x；從 x0 開始打，前面的東西（方向盤柱）不算 */
+function dashCaster(geos) {
+  const T = [];
+  for (const g of geos) {
+    const p = g.attributes.position, ix = g.index;
+    const n = ix ? ix.count : p.count;
+    for (let t = 0; t < n; t += 3) {
+      const a = ix ? ix.getX(t) : t, b = ix ? ix.getX(t + 1) : t + 1, c = ix ? ix.getX(t + 2) : t + 2;
+      T.push([p.getX(a), p.getY(a), p.getZ(a), p.getX(b), p.getY(b), p.getZ(b), p.getX(c), p.getY(c), p.getZ(c)]);
+    }
+  }
+  return (y, z, x0 = 0.52) => {
+    let best = Infinity;
+    for (const t of T) {
+      // 在 y-z 平面上判斷點在不在三角形裡，再用重心座標算 x
+      const [ax, ay, az, bx, by, bz, cx, cy, cz] = t;
+      if ((y < ay && y < by && y < cy) || (y > ay && y > by && y > cy) || (z < az && z < bz && z < cz) || (z > az && z > bz && z > cz)) continue;
+      const d = (by - ay) * (cz - az) - (bz - az) * (cy - ay);
+      if (Math.abs(d) < 1e-12) continue;
+      const u = ((y - ay) * (cz - az) - (z - az) * (cy - ay)) / d;
+      const v = ((by - ay) * (z - az) - (bz - az) * (y - ay)) / d;
+      if (u < 0 || v < 0 || u + v > 1) continue;
+      const x = ax + u * (bx - ax) + v * (cx - ax);
+      if (x > x0 && x < best) best = x;
+    }
+    return best;
+  };
+}
+/** 貼著儀表板正面的一條帶子：ys 是幾個高度，z 從 -zh 到 zh；碰不到的點沿用旁邊的 */
+function dashStrip(cast, ys, zh, off = 0.003, step = 0.025) {
+  const zs = [];
+  for (let z = -zh; z <= zh + 1e-6; z += step) zs.push(z);
+  const pos = [], uv = [], idx = [];
+  let prev = null;
+  for (const [j, y] of ys.entries()) {
+    let last = null;
+    const xs = zs.map((z) => cast(y, z, z > -0.52 && z < -0.25 ? 0.52 : 0.3)); // 方向盤柱那一段從前面一點開始打，其他地方從車廂裡打（儀表板有地方比較凸）
+    for (let i = 0; i < xs.length; i++) if (isFinite(xs[i])) last = xs[i]; else xs[i] = last;
+    last = null;
+    for (let i = xs.length - 1; i >= 0; i--) if (xs[i] != null) last = xs[i]; else xs[i] = last ?? 0.64;
+    // 碰到旁邊別的東西（螢幕支架、方向盤柱）會突然跳一截：和左右五點的中位數差太多就用中位數
+    const sm = xs.map((x, i) => {
+      const w = xs.slice(Math.max(0, i - 3), i + 4).sort((a, b) => a - b);
+      const m = w[w.length >> 1];
+      return Math.abs(x - m) > 0.012 ? m : x;
+    });
+    if (j > 0) for (let i = 0; i < sm.length; i++) sm[i] = Math.min(Math.max(sm[i], prev[i] - 0.03), prev[i] + 0.03); // 和下面一排差不多
+    prev = sm;
+    for (const [i, z] of zs.entries()) {
+      xs[i] = sm[i];
+      pos.push(xs[i] - off, y, z);
+      uv.push(i / (zs.length - 1), j / (ys.length - 1));
+    }
+  }
+  const nz = zs.length;
+  for (let j = 0; j < ys.length - 1; j++) for (let i = 0; i < nz - 1; i++) {
+    const a = j * nz + i, b = a + 1, c = a + nz, d = c + 1;
+    idx.push(a, c, b, b, c, d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+/** 新款 Model Y 的方向盤：圓的、皮革；中間方形的安全氣囊蓋，左右兩個按鍵座各一顆滾輪，
+ *  下面一根 V 形的輻條；一條銀色飾條從兩邊按鍵座下緣繞到下面那根輻條（照實車照片）。
+ *  在自己的座標裡做：x 往駕駛的右手邊、y 往上、z 朝駕駛 */
+function steeringWheel() {
+  const g = new THREE.Group();
+  const R = 0.16, T = 0.0175;
+  const leather = new THREE.MeshStandardMaterial({color: '#1a1b1d', roughness: 0.62});
+  const trimM = mat.plastic('#26272b', 0.35);
+  g.add(mesh(new THREE.TorusGeometry(R, T, 18, 96), leather));
+  // 輻條和按鍵座：一整片外形，擠出厚度
+  const s = new THREE.Shape();
+  const e = R - 0.004;
+  s.moveTo(-e, 0.036);
+  s.lineTo(-0.082, 0.036);
+  s.quadraticCurveTo(-0.07, 0.058, -0.05, 0.058);
+  s.lineTo(0.05, 0.058);
+  s.quadraticCurveTo(0.07, 0.058, 0.082, 0.036);
+  s.lineTo(e, 0.036);
+  s.lineTo(e, -0.024);
+  s.lineTo(0.076, -0.03);
+  s.quadraticCurveTo(0.06, -0.045, 0.048, -0.072);
+  s.lineTo(0.022, -e);
+  s.lineTo(-0.022, -e);
+  s.lineTo(-0.048, -0.072);
+  s.quadraticCurveTo(-0.06, -0.045, -0.076, -0.03);
+  s.lineTo(-e, -0.024);
+  s.closePath();
+  const plate = new THREE.ExtrudeGeometry(s, {depth: 0.022, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 2, curveSegments: 10});
+  plate.translate(0, 0, -0.03);
+  g.add(mesh(plate, trimM));
+  // 安全氣囊蓋：圓角方塊，皮革
+  const pad = rbox(0.12, 0.1, 0.034, 0.016, 4);
+  pad.translate(0, 0.004, 0.006);
+  g.add(mesh(pad, leather));
+  // 「TESLA」字樣：壓在氣囊蓋上，幾乎看不出來
+  const word = canvasTex(256, 64, (c, w, h) => {
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = 'rgba(120,122,126,0.55)';
+    c.font = `600 ${h * 0.42}px sans-serif`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.letterSpacing = '10px';
+    c.fillText('TESLA', w / 2, h / 2);
+  });
+  const lab = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.0175), new THREE.MeshStandardMaterial({map: word, transparent: true, roughness: 0.6, depthWrite: false}));
+  lab.position.set(0, 0.018, 0.0235);
+  g.add(lab);
+  // 銀色飾條
+  const chrome = mat.chrome();
+  const trim = (pts) => mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(([x, y]) => new THREE.Vector3(x, y, -0.006))), 40, 0.0026, 6), chrome);
+  for (const k of [-1, 1]) {
+    g.add(trim([[k * (R - 0.012), -0.022], [k * 0.08, -0.028], [k * 0.058, -0.05], [k * 0.044, -0.08], [k * 0.026, -(R - 0.012)]]));
+    g.add(trim([[k * (R - 0.012), 0.034], [k * 0.085, 0.034], [k * 0.068, 0.052]]));
+  }
+  // 兩邊的滾輪和小按鍵
+  const knurl = mat.plastic('#3a3c41', 0.35);
+  for (const k of [-1, 1]) {
+    const w = new THREE.CylinderGeometry(0.0095, 0.0095, 0.008, 20);
+    w.rotateZ(Math.PI / 2);
+    w.translate(k * 0.105, 0.006, -0.002);
+    g.add(mesh(w, knurl));
+    for (const [dx, dy] of [[0.128, 0.018], [0.128, -0.008], [0.085, 0.022]]) {
+      const b = rbox(0.011, 0.009, 0.006, 0.003, 2);
+      b.translate(k * dx, dy, -0.004);
+      g.add(mesh(b, knurl));
+    }
+  }
+  // 轉向柱和左邊的方向燈撥桿
+  const col = new THREE.CylinderGeometry(0.034, 0.04, 0.2, 20);
+  col.rotateX(Math.PI / 2);
+  col.translate(0, -0.005, -0.13);
+  g.add(mesh(col, trimM));
+  g.add(mesh(rod([-0.03, 0.01, -0.07], [-0.135, 0.0, -0.05], 0.0055, 10), trimM));
+  return g;
+}
+/** 座椅的顏色：淺灰色皮椅（汽車之家 2027 款「黑白」內裝），椅子底座是黑色、扶手也是淺灰 */
+function seatPaint(geo) {
+  const p = geo.attributes.position, n = p.count, c = new Float32Array(n * 3);
+  const W = new THREE.Color('#b9bab9'), K = new THREE.Color('#1c1d1f');
+  for (let i = 0; i < n; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    let dark = x > -0.4 ? y < 0.6 : y < 0.68; // 椅子底座
+    if (x > 0.25 && y > 1.25) dark = true; // 車內後視鏡
+    const col = dark ? K : W;
+    c[i * 3] = col.r;
+    c[i * 3 + 1] = col.g;
+    c[i * 3 + 2] = col.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+}
+/** 置物槽：上口和底都是圓角長方形（從上往下看），四面牆斜斜地連起來，上口外面一圈邊。
+ *  top/bot = [中心 x, 前後長, 左右寬, 圓角]，y0 是底、y1 是上口 */
+function tubGeo(top, bot, y0, y1, lip = 0.03) {
+  const N = 64;
+  const ring = ([cx, l, w, r], y, grow = 0) => rrShape(l + grow * 2, w + grow * 2, r + grow).getSpacedPoints(N).slice(0, N).map((p) => [cx + p.x, y, p.y]);
+  const A = ring(top, y1), B = ring(bot, y0), L = ring(top, y1, lip);
+  const pos = [];
+  const quad = (a, b, c, d) => pos.push(...a, ...b, ...c, ...a, ...c, ...d);
+  for (let i = 0; i < N; i++) {
+    const j = (i + 1) % N;
+    quad(A[i], A[j], B[j], B[i]);
+    quad(L[i], L[j], A[j], A[i]);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  const floor = new THREE.ShapeGeometry(rrShape(bot[1], bot[2], bot[3]), 8);
+  floor.rotateX(-Math.PI / 2); // 正面朝上
+  floor.translate(bot[0], y0, 0);
+  return merge([g, floor]);
 }
 
 // ---------- 主體 ----------
@@ -545,59 +856,172 @@ export function buildCar() {
 
   // ================= 第二層：車子裡面 =================
   {
-    // 地板（白色地毯邊、深灰地毯）
+    // 地板（深灰地毯）
     const g = [span([AX_R + 0.1, FLOOR - 0.04, -0.82], [1.05, FLOOR, 0.82], 0.02)];
     g.push(span([0.62, FLOOR, -0.82], [1.05, 0.62, 0.82], 0.04)); // 前面的腳踏斜板
     piece('floor', [mesh(merge(g), mat.plastic('#2c2d30', 0.95))], [0, 0.55, -1.0], 3);
   }
   {
+    // 座椅：淺灰色皮椅，底座是黑色
     const out = shell.int_seats || [];
+    const leatherM = new THREE.MeshStandardMaterial({color: '#ffffff', vertexColors: true, roughness: 0.58, side: THREE.DoubleSide});
+    for (const o of out) {
+      seatPaint(o.geometry);
+      o.material = leatherM;
+    }
     piece('seats', out, [0, 0.85, -1.55], 3);
   }
   {
-    // 儀表板：一整條橫的，木紋飾板上面有一條氣氛燈
+    // 儀表板：上下是深灰，中間一整條灰色織布，織布下面一條細細的出風口，最上緣一條氣氛燈；中央扶手台是淺灰（照汽車之家 2027 款全景）
     const out = [...(shell.int_dash || [])];
-    // 儀表板上一條氣氛燈（模型沒有，自己加一條細燈）
-    out.push(mesh(span([0.6, 1.005, -0.72], [0.612, 1.012, 0.72], 0.003), mat.lamp('#7fb3ff', 'ambient', 2.6)));
-    const amb = new THREE.PointLight('#9cc4ff', 0.9, 2.4, 1.6);
-    amb.position.set(0.1, 1.1, 0);
-    amb.userData.light = 'ambient';
-    out.push(amb);
+    const cast = dashCaster(out.map((o) => o.geometry));
+    // 中央扶手台（儀表板模型下面中間那一段）塗淺灰，其他深灰
+    {
+      const L = new THREE.Color('#c9cacb'), D = new THREE.Color('#26272a');
+      const dm = new THREE.MeshStandardMaterial({color: '#ffffff', vertexColors: true, roughness: 0.72, side: THREE.DoubleSide});
+      for (const o of out) {
+        const p = o.geometry.attributes.position, c = new Float32Array(p.count * 3);
+        for (let i = 0; i < p.count; i++) {
+          const k = Math.abs(p.getZ(i)) < 0.13 && p.getX(i) < 0.56 && p.getY(i) < 0.92 ? L : D;
+          c.set([k.r, k.g, k.b], i * 3);
+        }
+        o.geometry.setAttribute('color', new THREE.BufferAttribute(c, 3));
+        o.material = dm;
+      }
+    }
+    const cloth = new THREE.MeshStandardMaterial({color: '#ffffff', map: fabricTex(), roughness: 0.95, side: THREE.DoubleSide});
+    out.push(mesh(dashStrip(cast, [1.0, 1.03, 1.06, 1.09], 0.74), cloth));
+    out.push(mesh(dashStrip(cast, [0.974, 0.986], 0.7, 0.004), mat.plastic('#08090a', 0.8)));
+    // 氣氛燈：沿著儀表板上緣
+    const amb = [];
+    for (let z = -0.74; z <= 0.741; z += 0.04) {
+      const x = cast(1.108, z);
+      if (isFinite(x)) amb.push(new THREE.Vector3(x - 0.004, 1.108, z));
+    }
+    if (amb.length > 3) out.push(mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(amb), 80, 0.0028, 6), mat.lamp('#7fb3ff', 'ambient', 2.6)));
+    const light = new THREE.PointLight('#9cc4ff', 0.9, 2.4, 1.6);
+    light.position.set(0.1, 1.1, 0);
+    light.userData.light = 'ambient';
+    out.push(light);
+    // 螢幕下面：銀色邊的梯形框，連到中央扶手台
+    const chrome = mat.chrome();
+    const A = [0.6, 1.05], B = [0.47, 0.86];
+    for (const k of [-1, 1]) out.push(mesh(rod([A[0], A[1], k * 0.075], [B[0], B[1], k * 0.05], 0.0035, 8), chrome));
+    out.push(mesh(rod([B[0], B[1], -0.05], [B[0], B[1], 0.05], 0.0035, 8), chrome));
+    {
+      const q = new THREE.BufferGeometry();
+      const v = [[A[0] + 0.006, A[1], -0.075], [A[0] + 0.006, A[1], 0.075], [B[0] + 0.006, B[1], 0.05], [B[0] + 0.006, B[1], -0.05]];
+      q.setAttribute('position', new THREE.Float32BufferAttribute([...v[0], ...v[1], ...v[2], ...v[0], ...v[2], ...v[3]], 3));
+      q.computeVertexNormals();
+      out.push(mesh(q, new THREE.MeshPhysicalMaterial({color: '#0b0c0e', roughness: 0.25, clearcoat: 0.6, side: THREE.DoubleSide})));
+    }
+    // 中央扶手台上面：前面兩塊手機無線充電板（亮面黑、中間一條銀色細條），後面兩個杯架
+    const slope = Math.atan(0.14);
+    const yAt = (x) => 0.785 + (x - 0.3) * 0.14;
+    const base = rbox(0.21, 0.012, 0.19, 0.006);
+    base.rotateZ(slope);
+    base.translate(0.355, yAt(0.355) + 0.004, 0);
+    out.push(mesh(base, new THREE.MeshStandardMaterial({color: '#b4b6b9', roughness: 0.38, metalness: 0.35})));
+    for (const k of [-1, 1]) {
+      const p = rbox(0.165, 0.004, 0.074, 0.003, 2);
+      p.rotateZ(slope);
+      p.translate(0.36, yAt(0.36) + 0.012, k * 0.043);
+      out.push(mesh(p, new THREE.MeshStandardMaterial({color: '#9a9da1', roughness: 0.3, metalness: 0.4})));
+    }
+    const bar = rbox(0.17, 0.004, 0.006, 0.002, 2);
+    bar.rotateZ(slope);
+    bar.translate(0.36, yAt(0.36) + 0.013, 0);
+    out.push(mesh(bar, chrome));
+    // 扶手下面的扶手台本體（模型只有扶手，下面是空的）：一直延伸到前座椅背，後面裝後座螢幕
+    out.push(mesh(span([-0.455, FLOOR, -0.1], [0.12, 0.68, 0.1], 0.025), mat.plastic('#c9cacb', 0.5)));
+    const cup = [mesh(span([0.13, 0.775, -0.095], [0.255, 0.79, 0.095], 0.005), mat.plastic('#c9cacb', 0.5))];
+    for (const k of [-1, 1]) {
+      const ring = new THREE.TorusGeometry(0.036, 0.0035, 8, 32);
+      ring.rotateX(Math.PI / 2);
+      ring.translate(0.192, 0.791, k * 0.045);
+      cup.push(mesh(ring, mat.plastic('#3a3c41', 0.35)));
+      cup.push(mesh(cylY(0.0335, 0.787, 0.7915, 0.192, k * 0.045, 28), mat.plastic('#060607', 0.9)));
+    }
+    out.push(...cup);
     piece('dash', out, [0.4, 0.95, -1.6], 3);
   }
   {
-    // 中控螢幕 15.4 吋（橫的，浮在儀表板上）
+    // 中控螢幕 15.4 吋（橫的、圓角、細黑框，浮在儀表板上）
     // 一個組：螢幕面向車廂（往後），背板和支架黏在它後面，整組往後仰一點
-    const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.215), new THREE.MeshStandardMaterial({map: screenTex(680, 430), emissive: '#ffffff', emissiveMap: screenTex(680, 430), emissiveIntensity: 0.55, roughness: 0.3}));
-    const back = mesh(span([-0.18, -0.115, -0.024], [0.18, 0.115, -0.004], 0.008), mat.plastic('#141517', 0.5));
+    const SW = 0.332, SH = 0.208;
+    const tex = frontScreenTex();
+    const scr = new THREE.Mesh(flatShape(rrShape(SW, SH, 0.012), SW, SH), new THREE.MeshStandardMaterial({map: tex, emissive: '#ffffff', emissiveMap: tex, emissiveIntensity: 0.55, roughness: 0.25}));
+    scr.position.z = 0.0035; // 黑框（含倒角）的正面在 0.0015，螢幕要在它前面
+    const bezel = new THREE.ExtrudeGeometry(rrShape(SW + 0.012, SH + 0.012, 0.016), {depth: 0.016, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 2, curveSegments: 8});
+    bezel.translate(0, 0, -0.0165);
+    const back = mesh(bezel, mat.plastic('#0d0e10', 0.4));
     const stem = mesh(span([-0.03, -0.24, -0.034], [0.03, -0.1, -0.012], 0.008), mat.plastic('#141517', 0.5));
     const unit = new THREE.Group();
     unit.add(scr, back, stem);
     unit.position.set(0.64, 1.17, 0);
     unit.rotation.set(-0.2, -Math.PI / 2, 0, 'YXZ');
-    // 後座的 8 吋螢幕
-    const rs = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.11), new THREE.MeshStandardMaterial({map: screenTex(360, 220, true), emissive: '#ffffff', emissiveMap: screenTex(360, 220, true), emissiveIntensity: 0.5}));
-    rs.position.set(-0.425, 0.64, 0);
-    rs.rotation.y = -Math.PI / 2;
-    piece('screen', [unit],[0.35, 1.25, -1.7], 3);
-    piece('rearScreen', [rs], [-0.6, 0.95, -1.55], 3);
+    piece('screen', [unit], [0.35, 1.25, -1.7], 3);
+    // 後座的 8 吋螢幕：在中央扶手台的後面，對著後座
+    const RW = 0.178, RH = 0.112;
+    const rt = rearScreenTex();
+    const rs = new THREE.Mesh(flatShape(rrShape(RW, RH, 0.008), RW, RH), new THREE.MeshStandardMaterial({map: rt, emissive: '#ffffff', emissiveMap: rt, emissiveIntensity: 0.5, roughness: 0.25}));
+    rs.position.z = 0.0005;
+    const rb = new THREE.ExtrudeGeometry(rrShape(RW + 0.01, RH + 0.01, 0.01), {depth: 0.01, bevelEnabled: false, curveSegments: 6});
+    rb.translate(0, 0, -0.01);
+    const runit = new THREE.Group();
+    runit.add(rs, mesh(rb, mat.plastic('#0d0e10', 0.4)));
+    runit.position.set(-0.458, 0.6, 0);
+    runit.rotation.set(-0.1, -Math.PI / 2, 0, 'YXZ');
+    piece('rearScreen', [runit], [-0.6, 0.95, -1.55], 3);
   }
   {
-    // 方向盤（模型的），司機在左邊
-    piece('steering', shell.int_steering || [], [0.5, 1.15, -1.75], 3);
+    // 方向盤：新款的圓形方向盤（自己做，照實車照片），司機在左邊；盤面往前倒約 16 度（照原本模型量的）
+    const w = steeringWheel();
+    const r = (16.5 * Math.PI) / 180;
+    w.matrix.makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(Math.sin(r), Math.cos(r), 0), new THREE.Vector3(-Math.cos(r), Math.sin(r), 0));
+    w.matrix.setPosition(0.44, 1.112, -0.385);
+    w.matrix.decompose(w.position, w.quaternion, w.scale);
+    piece('steering', [w], [0.5, 1.15, -1.75], 3);
   }
   {
-    // 前車廂（frunk）：前蓋下面的置物槽
-    const g = [span([1.6, 0.5, -0.45], [2.15, 0.54, 0.45], 0.03)];
-    for (const s of [-1, 1]) g.push(span([1.6, 0.5, s * 0.45 - 0.02], [2.15, 0.76, s * 0.45 + 0.02], 0.01));
-    g.push(span([1.6, 0.5, -0.45], [1.64, 0.76, 0.45], 0.01), span([2.11, 0.5, -0.45], [2.15, 0.74, 0.45], 0.01));
-    piece('frunk', [mesh(merge(g), mat.plastic('#202124', 0.85))], [1.1, 0.9, -0.9], 3);
+    // 前車廂（frunk）：深的塑膠槽，上口寬、往下收窄；117 公升，大約 91 公分寬、35–43 公分深（車主量的）
+    // 後面斜的牆讓開前馬達；底下的熱泵在槽的下面
+    const g = [tubGeo([1.88, 0.55, 0.94, 0.12], [1.935, 0.3, 0.8, 0.08], 0.47, 0.765)];
+    for (const z of [-0.2, 0, 0.2]) g.push(span([1.81, 0.47, z - 0.012], [2.06, 0.482, z + 0.012], 0.005)); // 底下幾條凸起的筋
+    piece('frunk', [mesh(merge(g), new THREE.MeshStandardMaterial({color: '#1f2023', roughness: 0.85, side: THREE.DoubleSide}))], [1.1, 0.9, -0.9], 3);
   }
   {
-    // 後車廂：平的地板，下面還有一個藏東西的槽
-    const g = [span([-2.22, 0.64, -0.6], [-1.32, 0.67, 0.6], 0.02), span([-2.15, 0.36, -0.45], [-1.6, 0.4, 0.45], 0.03)];
-    for (const s of [-1, 1]) g.push(span([-2.15, 0.36, s * 0.45 - 0.015], [-1.6, 0.64, s * 0.45 + 0.015], 0.01));
-    piece('trunk', [mesh(merge(g), mat.plastic('#202124', 0.85))], [-1.1, 0.9, -0.9], 3);
+    // 後車廂（照汽車之家 2027 款全景）：平的黑色地毯地板，後半塊是蓋子，掀起來下面是很深的置物槽；
+    // 兩邊各一個往外凹的置物格，前面是包住輪拱和避震器的飾板；牆上方有放倒後座的按鈕和掛鉤；最後面一條黑色防刮飾條
+    const carpet = new THREE.MeshStandardMaterial({color: '#232427', roughness: 0.95, side: THREE.DoubleSide});
+    const g = [span([-1.82, 0.655, -0.62], [-1.34, 0.675, 0.62], 0.008)];
+    const lid = rbox(0.4, 0.014, 1.2, 0.006);
+    lid.translate(-2.02, 0.672, 0);
+    g.push(lid);
+    for (const s of [-1, 1]) {
+      const w = (x0, y0, x1, y1) => g.push(span([x0, y0, s * 0.63 - 0.015], [x1, y1, s * 0.63 + 0.015], 0.008)); // 側牆（中間挖一個置物格的口）
+      w(-2.22, 0.665, -2.12, 1.0);
+      w(-1.78, 0.665, -1.34, 1.0);
+      w(-2.12, 0.665, -1.78, 0.7);
+      w(-2.12, 0.93, -1.78, 1.0);
+      // 置物格：往外凹 12 公分的盒子
+      const zi = s * 0.63, zo = s * 0.75;
+      const zlo = Math.min(zi, zo), zhi = Math.max(zi, zo);
+      g.push(span([-2.12, 0.69, zlo], [-1.78, 0.705, zhi], 0.004), span([-2.12, 0.925, zlo], [-1.78, 0.94, zhi], 0.004));
+      g.push(span([-2.13, 0.69, zlo], [-2.115, 0.94, zhi], 0.004), span([-1.785, 0.69, zlo], [-1.77, 0.94, zhi], 0.004));
+      g.push(span([-2.12, 0.69, zo - 0.008], [-1.78, 0.94, zo + 0.008], 0.004));
+      g.push(span([-1.8, 0.665, s > 0 ? 0.5 : -0.63], [-1.34, 0.84, s > 0 ? 0.63 : -0.5], 0.06)); // 輪拱
+      g.push(span([-1.53, 0.665, s > 0 ? 0.5 : -0.645], [-1.34, 1.1, s > 0 ? 0.645 : -0.5], 0.05)); // 包住後避震器頂端的飾板
+    }
+    const out = [mesh(merge(g), carpet)];
+    out.push(mesh(tubGeo([-2.02, 0.4, 1.1, 0.08], [-2.015, 0.31, 0.94, 0.06], 0.33, 0.665, 0.012), new THREE.MeshStandardMaterial({color: '#1f2023', roughness: 0.85, side: THREE.DoubleSide})));
+    out.push(mesh(span([-1.9, 0.679, -0.06], [-1.86, 0.683, 0.06], 0.002), mat.plastic('#0c0c0d', 0.7))); // 掀蓋子的拉帶
+    out.push(mesh(span([-2.235, 0.63, -0.62], [-2.205, 0.69, 0.62], 0.008), mat.plastic('#121315', 0.5)));
+    for (const s of [-1, 1]) {
+      out.push(mesh(span([-1.536, 1.0, s * 0.56 - 0.02], [-1.528, 1.03, s * 0.56 + 0.02], 0.003), mat.plastic('#c9cbce', 0.4))); // 放倒後座的按鈕
+      out.push(mesh(span([-1.6, 0.94, s * 0.612 - 0.012], [-1.585, 0.975, s * 0.612 + 0.012], 0.004), mat.chrome())); // 掛鉤
+    }
+    piece('trunk', out, [-1.1, 0.9, -0.9], 3);
   }
 
   // ================= 第三層：底盤 =================
@@ -652,8 +1076,9 @@ export function buildCar() {
   }
   {
     // 熱泵：一個小盒子加很多管子，冬天幫電池和車子保暖
-    const out = [mesh(span([1.7, 0.42, 0.12], [1.92, 0.6, 0.38], 0.03), mat.plastic('#3d4147', 0.45))];
-    const pipes = [rod([1.8, 0.6, 0.2], [1.8, 0.7, 0.0], 0.015, 8), rod([1.85, 0.55, 0.38], [2.1, 0.55, 0.5], 0.015, 8), rod([1.75, 0.45, 0.12], [1.1, 0.33, 0.0], 0.015, 8)];
+    // 在前車廂置物槽的下面
+    const out = [mesh(span([1.8, 0.3, 0.12], [2.02, 0.455, 0.38], 0.03), mat.plastic('#3d4147', 0.45))];
+    const pipes = [rod([1.9, 0.45, 0.15], [1.78, 0.44, -0.2], 0.015, 8), rod([1.95, 0.38, 0.38], [2.1, 0.38, 0.5], 0.015, 8), rod([1.82, 0.32, 0.12], [1.1, 0.33, 0.0], 0.015, 8)];
     out.push(mesh(merge(pipes), mat.plastic('#8a9097', 0.4)));
     piece('heatpump', out, [0.6, 0.85, 0.5], 5);
   }
