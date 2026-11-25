@@ -394,6 +394,9 @@ export async function startIntro({vehicles, catalog, onDone, alive}) {
           }
           return cache.get(k);
         };
+        // 本來就透明的（玻璃、燈罩）最後才畫：所有材質都改成可以半透明之後，車身、座椅也排進透明那一輪，
+        // 玻璃若先畫（又不寫深度），後面的座椅會蓋過去，看起來像玻璃不見了
+        if ([].concat(mesh.material).some((m) => m.transparent)) mesh.renderOrder = 1;
         mesh.material = Array.isArray(mesh.material) ? mesh.material.map(one) : one(mesh.material);
       }
   }
