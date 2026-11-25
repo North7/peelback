@@ -199,7 +199,8 @@ function skMaterial(name, part, tag = '') {
   if (name === 'black_base' && part === 'liftgate') return phys({color: '#040405', roughness: 0.1, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 0.35});
   switch (name) {
     case 'Material_2125765635':
-      return phys({color: '#848990', metalness: 0.5, roughness: 0.38, clearcoat: 0.35, clearcoatRoughness: 0.25, envMapIntensity: 0.65});
+      // 車身漆：新款 Model Y 的水銀灰（Quicksilver），顏色照特斯拉官網照片調深、偏中性灰；反光維持原本的程度
+      return phys({color: '#6d6d72', metalness: 0.5, roughness: 0.38, clearcoat: 0.35, clearcoatRoughness: 0.25, envMapIntensity: 0.65});
     case 'glass_base':
       if (part === 'liftgate') return phys({color: '#060709', roughness: 0.25, specularIntensity: 0.12, envMapIntensity: 0.12, transparent: true, opacity: 0.96, depthWrite: false});
       // 擋風玻璃：太陽和棚燈在玻璃上的倒影收弱，不然從前上方看會像車裡有一團白光
