@@ -21,14 +21,14 @@ customPinyin({
   力气: 'lì qì',
   轮子: 'lún zi',
   轮胎: 'lún tāi',
-  转一圈: 'zhuàn yī quān',
-  转得: 'zhuàn de',
-  会转: 'huì zhuàn',
-  转很多圈: 'zhuàn hěn duō quān',
+  转一圈: 'zhuǎn yī quān',
+  转得: 'zhuǎn de',
+  会转: 'huì zhuǎn',
+  转很多圈: 'zhuǎn hěn duō quān',
   转一点点: 'zhuǎn yī diǎn diǎn',
   转弯: 'zhuǎn wān',
-  转不一样快: 'zhuàn bù yī yàng kuài',
-  一转: 'yī zhuàn',
+  转不一样快: 'zhuǎn bù yī yàng kuài',
+  一转: 'yī zhuǎn',
   垃圾: 'lè sè',
   星期: 'xīng qí',
   危险: 'wéi xiǎn',
@@ -110,7 +110,7 @@ customPinyin({
   得很: 'de hěn',
   看得到: 'kàn de dào',
   找得到: 'zhǎo de dào',
-  转得动: 'zhuàn de dòng',
+  转得动: 'zhuǎn de dòng',
   一样: 'yī yàng',
   不一样: 'bù yī yàng',
   比一比: 'bǐ yī bǐ',
@@ -159,12 +159,12 @@ customPinyin({
   网子: 'wǎng zi',
   排得: 'pái de',
   部分: 'bù fèn',
-  转一转: 'zhuàn yī zhuàn',
-  转几圈: 'zhuàn jǐ quān',
-  让轮子转: 'ràng lún zi zhuàn',
-  能转: 'néng zhuàn',
-  直接转: 'zhí jiē zhuàn',
-  怎么转: 'zěn me zhuàn',
+  转一转: 'zhuǎn yī zhuǎn',
+  转几圈: 'zhuǎn jǐ quān',
+  让轮子转: 'ràng lún zi zhuǎn',
+  能转: 'néng zhuǎn',
+  直接转: 'zhí jiē zhuǎn',
+  怎么转: 'zěn me zhuǎn',
   活塞: 'huó sāi',
   档: 'dǎng',
   小档: 'xiǎo dǎng',
@@ -257,8 +257,8 @@ customPinyin({
   伸长: 'shēn cháng',
   空气: 'kōng qì',
   空服员和清洁: 'kōng fú yuán hé qīng jié',
-  转起来: 'zhuàn qǐ lái',
-  一直转: 'yī zhí zhuàn',
+  转起来: 'zhuǎn qǐ lái',
+  一直转: 'yī zhí zhuǎn',
   往左转: 'wǎng zuǒ zhuǎn',
   斜斜地转弯: 'xié xié de zhuǎn wān',
   位子: 'wèi zi',
@@ -341,11 +341,11 @@ customPinyin({
   铝合金: 'lǚ hé jīn',
   一次: 'yī cì',
   // 2026-11-26 對照教育部《國語辭典簡編本》逐條檢查後的修正
-  // 轉：繞著中心一直轉（轉圈、自轉、輪子在轉）是ㄓㄨㄢˋ；換方向、換狀態是ㄓㄨㄢˇ；詞典收的詞照詞典（轉動、旋轉、轉速、轉彎都是ㄓㄨㄢˇ）
+  // 轉：Aron 要網站上的「轉」一律讀ㄓㄨㄢˇ（2026-11-26），連輪子、風扇在轉也是。簡編本另把「繞著中心旋轉」（轉圈、自轉）列為ㄓㄨㄢˋ，這裡不分
   转动: 'zhuǎn dòng',
   转动方向盘: 'zhuǎn dòng fāng xiàng pán',
   转向架: 'zhuǎn xiàng jià',
-  转快: 'zhuàn kuài',
+  转快: 'zhuǎn kuài',
   播: 'bò',
   播放: 'bò fàng',
   重播: 'chóng bò',
@@ -382,6 +382,9 @@ customPinyin({
   匹马力: 'pī mǎ lì',
   载入: 'zài rù',
 });
+
+// 一律讀這個音的字：轉 一律ㄓㄨㄢˇ（2026-11-26 Aron）
+const FIXED = {轉: 'ㄓㄨㄢˇ'};
 
 const INIT = {b: 'ㄅ', p: 'ㄆ', m: 'ㄇ', f: 'ㄈ', d: 'ㄉ', t: 'ㄊ', n: 'ㄋ', l: 'ㄌ', g: 'ㄍ', k: 'ㄎ', h: 'ㄏ', j: 'ㄐ', q: 'ㄑ', x: 'ㄒ', zh: 'ㄓ', ch: 'ㄔ', sh: 'ㄕ', r: 'ㄖ', z: 'ㄗ', c: 'ㄘ', s: 'ㄙ'};
 const FIN = {
@@ -443,6 +446,8 @@ for (const run of [...runs].sort()) {
     const py = pinyin(simp, {toneType: 'num', type: 'array', toneSandhi: false, v: false});
     zy = py.map(toZhuyin);
   } else zy = chars.map((c) => toZhuyin(pinyin(t2s(c), {toneType: 'num', toneSandhi: false})));
+  // 指定一律同一個讀音的字（Aron 的決定，不分詞）
+  chars.forEach((c, i) => { if (FIXED[c]) zy[i] = FIXED[c]; });
   map[run] = zy;
   chars.forEach((c, i) => {
     const k = c + '\t' + zy[i];
