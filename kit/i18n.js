@@ -36,10 +36,25 @@ export function ruby(s) {
   // 句號、逗號這些標點黏在前一個字後面，換行時不會一個標點單獨跑到下一行
   return rubyRaw(s).replace(/(<\/i><\/span><\/span>)([，。、！？：；」』）…]+)/g, (m, end, p) => end.slice(0, -7) + `<span class="zp">${p}</span></span>`);
 }
+/**
+ * 執行時才拼起來的句子（例如「關掉」＋燈的名字）不在表裡：從左邊開始，每次切下最長的、表裡有的一段，
+ * 用那一段的讀音（破音字才會照詞來）；都切不到的字才用這個字最常見的讀音。
+ */
+function splitRun(run) {
+  const cs = [...run], out = [];
+  for (let i = 0; i < cs.length; ) {
+    let j = Math.min(cs.length, i + 24);
+    for (; j > i + 1; j--) if (ZY.runs[cs.slice(i, j).join('')]) break;
+    const seg = cs.slice(i, j).join('');
+    out.push(...(j > i + 1 ? ZY.runs[seg] : [ZY.chars[cs[i]] || '']));
+    i = j;
+  }
+  return out;
+}
 function rubyRaw(s) {
   return String(s).replace(/[㐀-鿿]+|[^㐀-鿿]+/g, (run) => {
     if (!/[㐀-鿿]/.test(run)) return esc(run);
-    const zs = ZY.runs[run] || [...run].map((c) => ZY.chars[c] || '');
+    const zs = ZY.runs[run] || splitRun(run);
     return [...run].map((c, i) => (zs[i] ? `<span class="zc">${c}${zyCol(zs[i])}</span>` : c)).join('');
   });
 }
